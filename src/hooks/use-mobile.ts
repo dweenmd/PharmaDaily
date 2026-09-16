@@ -1,19 +1,31 @@
-import * as React from "react"
+import * as React from "react";
 
-const MOBILE_BREAKPOINT = 768
+const MOBILE_BREAKPOINT = 768;
 
-export function useIsMobile() {
-  const [isMobile, setIsMobile] = React.useState<boolean | undefined>(undefined)
+const QUERY = `(max-width: ${MOBILE_BREAKPOINT - 1}px)`;
 
-  React.useEffect(() => {
-    const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`)
-    const onChange = () => {
-      setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
-    }
-    mql.addEventListener("change", onChange)
-    setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
-    return () => mql.removeEventListener("change", onChange)
-  }, [])
+function subscribe(onChange: () => void) {
+  const mql = window.matchMedia(QUERY);
+  mql.addEventListener("change", onChange);
+  return () => mql.removeEventListener("change", onChange);
+}
 
-  return !!isMobile
+function getSnapshot() {
+  return window.matchMedia(QUERY).matches;
+}
+
+/** The server has no viewport; assume desktop and correct on hydration. */
+function getServerSnapshot() {
+  return false;
+}
+
+/**
+ * Viewport-width breakpoint check.
+ *
+ * useSyncExternalStore rather than useState + useEffect: it is the API React
+ * provides for reading external, mutable state, and it avoids the cascading
+ * re-render that calling setState in an effect body causes.
+ */
+export function useIsMobile(): boolean {
+  return React.useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }
