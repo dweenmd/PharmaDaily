@@ -1,0 +1,31 @@
+# Normalize line endings: LF in the repository, native in the working copy.
+# Without this, a Windows checkout rewrites every file to CRLF and diffs become
+# unreadable the moment anyone works on macOS/Linux or CI.
+* text=auto eol=lf
+
+# Windows-only files that must keep CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Binary files: never touch, never diff.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.avif binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+*.pdf binary
+*.zip binary
+
+# Generated files: collapse in PR diffs on GitHub.
+package-lock.json linguist-generated=true -diff
+src/types/database.types.ts linguist-generated=true -diff
+
+# SQL migrations are the schema source of truth — always show them in diffs.
+supabase/migrations/*.sql text eol=lf linguist-language=SQL
