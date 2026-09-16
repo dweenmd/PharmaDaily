@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation";
 
+import { getAccessibleBranches } from "@/features/branches/queries";
 import { getCurrentProfile } from "@/lib/auth/get-current-profile";
 import { canSwitchBranch } from "@/lib/auth/roles";
-import { createClient } from "@/lib/supabase/server";
 import { AppHeader } from "@/components/shared/app-header";
 import { AppSidebar } from "@/components/shared/app-sidebar";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
@@ -23,31 +23,32 @@ export default async function ProtectedLayout({ children }: LayoutProps<"/">) {
 
   if (!profile) redirect("/login");
 
-  // RLS decides what comes back: a super admin sees every live branch, anyone
-  // else sees exactly their own. No role check is needed in this query — that
-  // is the point of enforcing isolation in the database.
-  const supabase = await createClient();
-  const { data: branches } = await supabase
-    .from("branches")
-    .select("id, name, code")
-    .is("deleted_at", null)
-    .eq("is_active", true)
-    .order("name");
+  const branches = await getAccessibleBranches();
 
   return (
     <SidebarProvider>
+      {/* Keyboard users land here first and can jump past the whole nav. */}
+      <a
+        href="#main-content"
+        className="bg-background focus:ring-ring sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:rounded-md focus:border focus:px-3 focus:py-2 focus:text-sm focus:ring-2"
+      >
+        Skip to content
+      </a>
+
       <AppSidebar role={profile.role} />
 
       <SidebarInset>
         <AppHeader
           name={profile.name}
           role={profile.role}
-          branches={branches ?? []}
+          branches={branches}
           activeBranchId={profile.branch_id}
           canSwitchBranch={canSwitchBranch(profile.role)}
         />
 
-        <main className="flex-1 p-4 sm:p-6">{children}</main>
+        <main id="main-content" className="flex-1 p-4 sm:p-6">
+          {children}
+        </main>
       </SidebarInset>
     </SidebarProvider>
   );

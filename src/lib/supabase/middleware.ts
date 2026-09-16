@@ -31,8 +31,13 @@ function isPublicPath(pathname: string) {
  * guarantee is Row Level Security in the database: bypassing this redirect
  * still yields nothing readable.
  */
-export async function updateSession(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({ request });
+export async function updateSession(request: NextRequest, requestHeaders?: Headers) {
+  // When the caller supplies headers (the CSP nonce), they have to ride along
+  // on the REQUEST, not just the response: that is how Next.js picks the nonce
+  // up and stamps it onto its own script tags.
+  const nextOptions = requestHeaders ? { request: { headers: requestHeaders } } : { request };
+
+  let supabaseResponse = NextResponse.next(nextOptions);
 
   const supabase = createServerClient<Database>(
     env.NEXT_PUBLIC_SUPABASE_URL,
@@ -46,7 +51,7 @@ export async function updateSession(request: NextRequest) {
           for (const { name, value } of cookiesToSet) {
             request.cookies.set(name, value);
           }
-          supabaseResponse = NextResponse.next({ request });
+          supabaseResponse = NextResponse.next(nextOptions);
           for (const { name, value, options } of cookiesToSet) {
             supabaseResponse.cookies.set(name, value, options);
           }

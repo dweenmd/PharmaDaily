@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Building2, ShieldCheck, UserRound } from "lucide-react";
 
+import { getAccessibleBranches } from "@/features/branches/queries";
 import { getCurrentProfile } from "@/lib/auth/get-current-profile";
 import { ROLE_DESCRIPTIONS, ROLE_LABELS, isSuperAdmin } from "@/lib/auth/roles";
-import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -28,14 +28,8 @@ export default async function DashboardPage() {
 
   if (!profile) redirect("/login");
 
-  const supabase = await createClient();
-  const { data: branches } = await supabase
-    .from("branches")
-    .select("id, name, code, phone, address")
-    .is("deleted_at", null)
-    .order("name");
-
-  const visibleBranches = branches ?? [];
+  // Deduped with the shell's own call by React's cache().
+  const visibleBranches = await getAccessibleBranches();
   const superAdmin = isSuperAdmin(profile.role);
 
   return (

@@ -87,8 +87,9 @@ export function LoginForm() {
           return;
         }
 
-        // refresh() first so the freshly-set auth cookie is picked up by the
-        // server components that are about to render the dashboard.
+        // refresh() after navigating, so the server components rendering the
+        // destination re-run with the freshly-set auth cookie rather than
+        // serving a cached signed-out render.
         router.replace(result.redirectTo);
         router.refresh();
       } catch {
