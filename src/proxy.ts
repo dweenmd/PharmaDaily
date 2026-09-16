@@ -2,14 +2,19 @@ import { type NextRequest } from "next/server";
 
 import { updateSession } from "@/lib/supabase/middleware";
 
-export async function middleware(request: NextRequest) {
+/**
+ * Next 16 renamed the `middleware` convention to `proxy`. Same runtime role:
+ * it runs before every matched request, refreshes the Supabase session cookie
+ * and redirects anonymous traffic away from protected routes.
+ */
+export async function proxy(request: NextRequest) {
   return updateSession(request);
 }
 
 export const config = {
   matcher: [
     /*
-     * Run on every path except static assets and the service worker.
+     * Everything except static assets and the service worker.
      *
      * Excluding sw.js matters: the service worker must be fetchable while
      * signed out, otherwise the PWA cannot install or serve the offline shell.
