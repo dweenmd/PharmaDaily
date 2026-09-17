@@ -38,6 +38,21 @@ Both functions run `SECURITY INVOKER`, so every write inside them is checked aga
 
 `npm run verify:tx` proves this, including that a purchase which fails partway leaves nothing behind.
 
+## Money
+
+Completing a sale is the same shape: header, line items, payments, a deduction from each batch and a ledger entry per line, all inside `create_sale()`.
+
+Two details there are security decisions, not just correctness ones:
+
+- **Prices are read from the database, never accepted from the client.** The browser sends a batch and a quantity; `unit_price` comes from `branch_stocks.selling_price`. If the client supplied it, anyone who can open a console could set their own prices and the books would still balance. `verify:tx` sends a deliberately tampered price and asserts it is ignored.
+- **Every batch row is locked `FOR UPDATE` before its quantity is checked.** Two cashiers selling the last strip at the same instant would otherwise both read "1 in stock" and both deduct.
+
+Invoice numbers (`BRANCHCODE-YYYY-XXXX`) come from a counter table incremented with `ON CONFLICT DO UPDATE`. `max(invoice_no)+1` would let concurrent sales claim the same number and reject one *after* the customer had paid; a Postgres sequence is not transactional, so a rolled-back sale would burn a number and leave a gap indistinguishable from a deleted invoice. `verify:tx` fires ten simultaneous sales and asserts every one gets a distinct number.
+
+`payments`, `sale_items` and the return tables are append-only — no `UPDATE` or `DELETE` grant to anyone. A tender that can be edited after the fact is a way to make cash disappear from the till. Returns cap each line at what was sold minus what has already come back, and settle against outstanding credit before any cash goes out.
+
+`public.can_sell()` decides who may take payment or issue a refund: super admin, branch manager, cashier and pharmacist. Stock managers are deliberately excluded — their job is receiving deliveries, not handling money.
+
 ---
 
 ## Getting started
@@ -183,8 +198,8 @@ scripts/                  Seeding, RLS verification, icon generation
 | --- | --- | --- |
 | 1 | Setup, authentication, roles, RLS | Complete |
 | 2 | Medicines, suppliers, purchases, stock | Complete |
-| 3 | POS, billing, sales returns | Next |
-| 4 | Dashboard and reports | Planned |
+| 3 | POS, billing, sales returns | Complete |
+| 4 | Dashboard and reports | Next |
 | 5 | Multi-branch operations and stock transfers | Planned |
 | 6 | Offline sync, mobile payments, audit log | Planned |
 

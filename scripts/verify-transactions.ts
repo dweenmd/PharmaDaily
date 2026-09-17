@@ -69,6 +69,35 @@ async function signedInStockManager(branchId: string) {
   return client;
 }
 
+/** Creates a cashier at the given branch and returns a signed-in client. */
+async function signedInCashier(branchId: string) {
+  const admin = adminClient();
+  const email = `${TAG.toLowerCase()}-cashier@example.com`;
+
+  const { data, error } = await admin.auth.admin.createUser({
+    email,
+    password: PASSWORD,
+    email_confirm: true,
+    user_metadata: { name: `${TAG} Cashier` },
+  });
+
+  if (error || !data.user) throw new Error(`createUser: ${error?.message}`);
+
+  await admin
+    .from("profiles")
+    .update({ role: "cashier", branch_id: branchId, is_active: true })
+    .eq("auth_id", data.user.id);
+
+  const client = anonClient();
+  const { error: signInError } = await client.auth.signInWithPassword({
+    email,
+    password: PASSWORD,
+  });
+  if (signInError) throw new Error(`signIn: ${signInError.message}`);
+
+  return client;
+}
+
 async function cleanup(branchId?: string, medicineId?: string, supplierId?: string) {
   const admin = adminClient();
 
@@ -82,6 +111,26 @@ async function cleanup(branchId?: string, medicineId?: string, supplierId?: stri
   if (branchId) {
     await admin.from("stock_movements").delete().eq("branch_id", branchId);
     await admin.from("stock_adjustments").delete().eq("branch_id", branchId);
+
+    const { data: sales } = await admin.from("sales").select("id").eq("branch_id", branchId);
+    const saleIds = (sales ?? []).map((s) => s.id);
+    if (saleIds.length > 0) {
+      const { data: returns } = await admin
+        .from("sales_returns")
+        .select("id")
+        .in("sale_id", saleIds);
+      const returnIds = (returns ?? []).map((r) => r.id);
+      if (returnIds.length > 0) {
+        await admin.from("sales_return_items").delete().in("return_id", returnIds);
+        await admin.from("sales_returns").delete().in("id", returnIds);
+      }
+      await admin.from("payments").delete().in("sale_id", saleIds);
+      await admin.from("sale_items").delete().in("sale_id", saleIds);
+      await admin.from("sales").delete().in("id", saleIds);
+    }
+
+    await admin.from("invoice_counters").delete().eq("branch_id", branchId);
+    await admin.from("customers").delete().like("name", `${TAG}%`);
 
     const { data: purchases } = await admin
       .from("purchases")
@@ -408,6 +457,271 @@ async function main() {
       "summing the ledger reproduces the stock balance",
       ledgerSum === afterAdjust?.quantity,
       `ledger ${ledgerSum} vs balance ${afterAdjust?.quantity}`,
+    );
+
+    // =======================================================================
+    console.log("\n  Sales");
+    // =======================================================================
+    const cashier = await signedInCashier(branch.id);
+
+    const { data: customer } = await admin
+      .from("customers")
+      .insert({ name: `${TAG} Customer` })
+      .select("id")
+      .single();
+
+    const { data: batch } = await admin
+      .from("branch_stocks")
+      .select("id, quantity, selling_price")
+      .eq("branch_id", branch.id)
+      .eq("batch_no", "B1")
+      .single();
+
+    if (!customer || !batch) throw new Error("sales fixture setup failed");
+
+    const stockBeforeSale = batch.quantity;
+    const price = Number(batch.selling_price);
+
+    // THE PRICE-TAMPERING TEST. The client is deliberately sending a price and
+    // a total; create_sale() must ignore both and read selling_price from the
+    // database. If this ever fails, anyone with a browser console can set their
+    // own prices and the books will still balance.
+    const { data: saleId, error: saleError } = await cashier.rpc("create_sale", {
+      p_branch_id: branch.id,
+      p_customer_id: customer.id,
+      p_discount: 10,
+      p_items: [
+        {
+          branch_stock_id: batch.id,
+          quantity: 4,
+          unit_price: 0.01,
+          total_price: 0.04,
+        },
+      ],
+      p_payments: [{ method: "cash", amount: 50 }],
+    });
+
+    if (saleError) throw new Error(`create_sale failed: ${saleError.message}`);
+
+    const { data: sale } = await admin
+      .from("sales")
+      .select("invoice_no, subtotal, discount, total_amount, paid_amount, due_amount")
+      .eq("id", saleId!)
+      .single();
+
+    const { data: soldItems } = await admin
+      .from("sale_items")
+      .select("quantity, unit_price, total_price")
+      .eq("sale_id", saleId!);
+
+    const expectedSubtotal = price * 4;
+
+    check(
+      "the client's price is ignored in favour of the database's",
+      Number(soldItems?.[0]?.unit_price) === price,
+      `unit_price ${soldItems?.[0]?.unit_price}, expected ${price}`,
+    );
+    check(
+      "the subtotal is computed from database prices",
+      Number(sale?.subtotal) === expectedSubtotal,
+      `${sale?.subtotal}, expected ${expectedSubtotal}`,
+    );
+    check(
+      "total equals subtotal minus discount",
+      Number(sale?.total_amount) === expectedSubtotal - 10,
+      `${sale?.total_amount}`,
+    );
+
+    check(
+      "the invoice number is branch-coded and sequential",
+      /^[A-Z0-9]{2,10}-\d{4}-\d{4,}$/.test(sale?.invoice_no ?? ""),
+      sale?.invoice_no,
+    );
+
+    const { data: stockAfterSale } = await admin
+      .from("branch_stocks")
+      .select("quantity")
+      .eq("id", batch.id)
+      .single();
+
+    check(
+      "stock was deducted by the quantity sold",
+      stockAfterSale?.quantity === stockBeforeSale - 4,
+      `${stockBeforeSale} -> ${stockAfterSale?.quantity}`,
+    );
+
+    const { data: saleMovements } = await admin
+      .from("stock_movements")
+      .select("quantity, type")
+      .eq("reference_id", saleId!);
+
+    check(
+      "a negative ledger entry was written for the sale",
+      saleMovements?.length === 1 &&
+        saleMovements[0]?.quantity === -4 &&
+        saleMovements[0]?.type === "sale",
+      JSON.stringify(saleMovements),
+    );
+
+    const { data: customerAfterSale } = await admin
+      .from("customers")
+      .select("due_amount")
+      .eq("id", customer.id)
+      .single();
+
+    // Paid 50 against a total of (price*4 - 10); the remainder is credit.
+    const expectedDue = Math.max(0, expectedSubtotal - 10 - 50);
+    check(
+      "unpaid balance was added to the customer",
+      Number(customerAfterSale?.due_amount) === expectedDue,
+      `${customerAfterSale?.due_amount}, expected ${expectedDue}`,
+    );
+
+    // --- Overselling ------------------------------------------------------
+    const { error: oversell } = await cashier.rpc("create_sale", {
+      p_branch_id: branch.id,
+      p_customer_id: null as unknown as string,
+      p_discount: 0,
+      p_items: [{ branch_stock_id: batch.id, quantity: 100000 }],
+      p_payments: [{ method: "cash", amount: 1 }],
+    });
+
+    check(
+      "cannot sell more than is on the shelf",
+      oversell !== null,
+      oversell ? undefined : "the sale succeeded — stock could go negative",
+    );
+
+    // --- Credit without a customer ----------------------------------------
+    const { error: anonymousCredit } = await cashier.rpc("create_sale", {
+      p_branch_id: branch.id,
+      p_customer_id: null as unknown as string,
+      p_discount: 0,
+      p_items: [{ branch_stock_id: batch.id, quantity: 1 }],
+      p_payments: [],
+    });
+
+    check(
+      "cannot leave an amount owing without naming a customer",
+      anonymousCredit !== null,
+      anonymousCredit ? undefined : "untraceable debt was created",
+    );
+
+    // =======================================================================
+    console.log("\n  Concurrent invoice numbering");
+    // =======================================================================
+
+    // The real reason the counter exists. Ten sales fired at once: every one
+    // must get a distinct number. With max(invoice_no)+1 several would collide
+    // and be rejected after the customer had already paid.
+    const concurrent = await Promise.all(
+      Array.from({ length: 10 }, () =>
+        cashier.rpc("create_sale", {
+          p_branch_id: branch.id,
+          p_customer_id: null as unknown as string,
+          p_discount: 0,
+          p_items: [{ branch_stock_id: batch.id, quantity: 1 }],
+          p_payments: [{ method: "cash", amount: price }],
+        }),
+      ),
+    );
+
+    const succeeded = concurrent.filter((r) => !r.error);
+    const { data: concurrentSales } = await admin
+      .from("sales")
+      .select("invoice_no")
+      .in(
+        "id",
+        succeeded.map((r) => r.data as unknown as string),
+      );
+
+    const numbers = (concurrentSales ?? []).map((s) => s.invoice_no);
+
+    check(
+      "all ten concurrent sales completed",
+      succeeded.length === 10,
+      `${succeeded.length} of 10; first error: ${concurrent.find((r) => r.error)?.error?.message}`,
+    );
+    check(
+      "every concurrent sale got a distinct invoice number",
+      new Set(numbers).size === numbers.length,
+      `${numbers.length} sales, ${new Set(numbers).size} distinct numbers`,
+    );
+
+    // =======================================================================
+    console.log("\n  Returns");
+    // =======================================================================
+    const { data: saleItem } = await admin
+      .from("sale_items")
+      .select("id, quantity")
+      .eq("sale_id", saleId!)
+      .single();
+
+    if (!saleItem) throw new Error("sale item missing");
+
+    const { data: stockBeforeReturn } = await admin
+      .from("branch_stocks")
+      .select("quantity")
+      .eq("id", batch.id)
+      .single();
+
+    const { error: returnError } = await cashier.rpc("create_sales_return", {
+      p_sale_id: saleId!,
+      p_items: [{ sale_item_id: saleItem.id, quantity: 2 }],
+      p_reason: "Customer changed their mind",
+      p_refund_method: "cash",
+    });
+
+    const { data: stockAfterReturn } = await admin
+      .from("branch_stocks")
+      .select("quantity")
+      .eq("id", batch.id)
+      .single();
+
+    check("the return was accepted", returnError === null, returnError?.message);
+    check(
+      "returned stock went back to the same batch",
+      stockAfterReturn?.quantity === (stockBeforeReturn?.quantity ?? 0) + 2,
+      `${stockBeforeReturn?.quantity} -> ${stockAfterReturn?.quantity}`,
+    );
+
+    const { data: returnMovements } = await admin
+      .from("stock_movements")
+      .select("quantity, type")
+      .eq("type", "return")
+      .eq("branch_id", branch.id);
+
+    check(
+      "a positive ledger entry was written for the return",
+      returnMovements?.some((m) => m.quantity === 2) ?? false,
+      JSON.stringify(returnMovements),
+    );
+
+    // Two of four already returned, so at most two more.
+    const { error: overReturn } = await cashier.rpc("create_sales_return", {
+      p_sale_id: saleId!,
+      p_items: [{ sale_item_id: saleItem.id, quantity: 3 }],
+      p_reason: "Attempting to over-return",
+      p_refund_method: "cash",
+    });
+
+    check(
+      "cannot return more than was sold",
+      overReturn !== null,
+      overReturn ? undefined : "the same line was refunded twice",
+    );
+
+    const { error: noReason } = await cashier.rpc("create_sales_return", {
+      p_sale_id: saleId!,
+      p_items: [{ sale_item_id: saleItem.id, quantity: 1 }],
+      p_reason: "",
+      p_refund_method: "cash",
+    });
+
+    check(
+      "a return requires a reason",
+      noReason !== null,
+      noReason ? undefined : "an unexplained refund was accepted",
     );
   } finally {
     console.log("\n  Cleaning up…");

@@ -90,6 +90,25 @@ async function cleanup() {
     await admin.from("stock_movements").delete().in("branch_id", branchIds);
     await admin.from("stock_adjustments").delete().in("branch_id", branchIds);
 
+    const { data: testSales } = await admin.from("sales").select("id").in("branch_id", branchIds);
+    const saleIds = (testSales ?? []).map((s) => s.id);
+    if (saleIds.length > 0) {
+      const { data: returns } = await admin
+        .from("sales_returns")
+        .select("id")
+        .in("sale_id", saleIds);
+      const returnIds = (returns ?? []).map((r) => r.id);
+      if (returnIds.length > 0) {
+        await admin.from("sales_return_items").delete().in("return_id", returnIds);
+        await admin.from("sales_returns").delete().in("id", returnIds);
+      }
+      await admin.from("payments").delete().in("sale_id", saleIds);
+      await admin.from("sale_items").delete().in("sale_id", saleIds);
+      await admin.from("sales").delete().in("id", saleIds);
+    }
+
+    await admin.from("invoice_counters").delete().in("branch_id", branchIds);
+
     const { data: testPurchases } = await admin
       .from("purchases")
       .select("id")
@@ -103,6 +122,7 @@ async function cleanup() {
     await admin.from("branch_stocks").delete().in("branch_id", branchIds);
   }
 
+  await admin.from("customers").delete().like("name", "RLSTest%");
   await admin.from("medicines").delete().like("name", "RLSTest%");
   await admin.from("suppliers").delete().like("name", "RLSTest%");
   await admin.from("branches").delete().like("code", "RLS%");
@@ -469,6 +489,189 @@ async function main() {
     "a cashier cannot record purchases",
     cashierPurchase !== null,
     cashierPurchase ? undefined : "the RPC succeeded",
+  );
+
+  // =========================================================================
+  // Phase 3 — sales.
+  //
+  // Takings, discounts and customer debt. Same isolation as stock, applied to
+  // money, plus the append-only rules that stop a till being rewritten after
+  // the fact.
+  // =========================================================================
+  console.log("\n  Phase 3 — sales and money");
+
+  const { data: customer } = await admin
+    .from("customers")
+    .insert({ name: "RLSTest Customer", phone: `+8801${Date.now().toString().slice(-9)}` })
+    .select("id")
+    .single();
+
+  if (!customer) throw new Error("customer fixture failed");
+
+  // A completed sale at branch B, so branch A has something to fail to see.
+  const { data: saleB } = await admin
+    .from("sales")
+    .insert({
+      branch_id: branchB.id,
+      customer_id: customer.id,
+      invoice_no: "RLSB-2026-9001",
+      subtotal: 100,
+      discount: 0,
+      total_amount: 100,
+      paid_amount: 100,
+      due_amount: 0,
+    })
+    .select("id")
+    .single();
+
+  if (!saleB) throw new Error("sale fixture failed");
+
+  const { data: saleItemB } = await admin
+    .from("sale_items")
+    .insert({
+      sale_id: saleB.id,
+      medicine_id: medicine.id,
+      branch_stock_id: stockRows.find((s) => s.branch_id === branchB.id)!.id,
+      batch_no: "RLSBATCH-B",
+      quantity: 10,
+      unit_price: 10,
+      total_price: 100,
+    })
+    .select("id")
+    .single();
+
+  const { data: paymentB } = await admin
+    .from("payments")
+    .insert({ sale_id: saleB.id, branch_id: branchB.id, method: "cash", amount: 100 })
+    .select("id")
+    .single();
+
+  // --- Branch manager A looking at another branch's money ------------------
+  const { data: aSales } = await a.from("sales").select("invoice_no");
+  check(
+    "cannot see another branch's sales",
+    !(aSales ?? []).some((s) => s.invoice_no === "RLSB-2026-9001"),
+    JSON.stringify(aSales?.map((s) => s.invoice_no)),
+  );
+
+  const { data: aSaleItems } = await a.from("sale_items").select("id");
+  check(
+    "cannot see another branch's sale lines",
+    (aSaleItems?.length ?? 0) === 0,
+    `got ${aSaleItems?.length ?? 0} rows`,
+  );
+
+  const { data: aPayments } = await a.from("payments").select("id");
+  check(
+    "cannot see another branch's takings",
+    (aPayments?.length ?? 0) === 0,
+    `got ${aPayments?.length ?? 0} rows`,
+  );
+
+  const { error: crossBranchSale } = await a.rpc("create_sale", {
+    p_branch_id: branchB.id,
+    p_customer_id: customer.id,
+    p_discount: 0,
+    p_items: [
+      { branch_stock_id: stockRows.find((s) => s.branch_id === branchB.id)!.id, quantity: 1 },
+    ],
+    p_payments: [{ method: "cash", amount: 8 }],
+  });
+
+  check(
+    "cannot ring up a sale at another branch",
+    crossBranchSale !== null,
+    crossBranchSale ? undefined : "the RPC succeeded",
+  );
+
+  // --- Money records must be append-only -----------------------------------
+  if (paymentB) {
+    const { error: paymentUpdate } = await a
+      .from("payments")
+      .update({ amount: 1 })
+      .eq("id", paymentB.id);
+
+    const { data: paymentAfter } = await admin
+      .from("payments")
+      .select("amount")
+      .eq("id", paymentB.id)
+      .single();
+
+    check(
+      "cannot rewrite a recorded payment",
+      Number(paymentAfter?.amount) === 100,
+      `amount is now ${paymentAfter?.amount}, error was ${paymentUpdate?.message ?? "none"}`,
+    );
+
+    const { error: paymentDelete } = await a.from("payments").delete().eq("id", paymentB.id);
+    const { count: paymentCount } = await admin
+      .from("payments")
+      .select("id", { count: "exact", head: true })
+      .eq("id", paymentB.id);
+
+    check(
+      "cannot delete a recorded payment",
+      paymentCount === 1,
+      `row count ${paymentCount}, error was ${paymentDelete?.message ?? "none"}`,
+    );
+  }
+
+  if (saleItemB) {
+    const { error: itemUpdate } = await a
+      .from("sale_items")
+      .update({ unit_price: 1 })
+      .eq("id", saleItemB.id);
+
+    const { data: itemAfter } = await admin
+      .from("sale_items")
+      .select("unit_price")
+      .eq("id", saleItemB.id)
+      .single();
+
+    check(
+      "cannot change what a customer was charged",
+      Number(itemAfter?.unit_price) === 10,
+      `unit_price is now ${itemAfter?.unit_price}, error was ${itemUpdate?.message ?? "none"}`,
+    );
+  }
+
+  // --- The invoice counter must be unreachable -----------------------------
+  const { data: counters, error: counterError } = await a.from("invoice_counters").select("*");
+  check(
+    "cannot read or rewind the invoice counter",
+    counterError !== null || (counters?.length ?? 0) === 0,
+    `got ${counters?.length ?? 0} rows`,
+  );
+
+  // --- A stock manager must not handle money -------------------------------
+  const stockManagerEmail = `${PREFIX}-stockman@example.com`;
+  await createStaff(stockManagerEmail, "Stock Manager A", "branch_manager", branchA.id);
+  await admin.from("profiles").update({ role: "stock_manager" }).eq("name", "Stock Manager A");
+
+  const stockManager = await signIn(stockManagerEmail);
+
+  const { error: stockManagerSale } = await stockManager.rpc("create_sale", {
+    p_branch_id: branchA.id,
+    p_customer_id: null as unknown as string,
+    p_discount: 0,
+    p_items: [
+      { branch_stock_id: stockRows.find((s) => s.branch_id === branchA.id)!.id, quantity: 1 },
+    ],
+    p_payments: [{ method: "cash", amount: 8 }],
+  });
+
+  check(
+    "a stock manager cannot take payment",
+    stockManagerSale !== null,
+    stockManagerSale ? undefined : "the RPC succeeded — refunds would be reachable too",
+  );
+
+  // --- Customers are deliberately global ------------------------------------
+  const { data: aCustomers } = await a.from("customers").select("id").eq("id", customer.id);
+  check(
+    "customers are shared across branches by design",
+    (aCustomers?.length ?? 0) === 1,
+    `got ${aCustomers?.length ?? 0} rows`,
   );
 
   // =========================================================================
