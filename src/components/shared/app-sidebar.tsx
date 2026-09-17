@@ -119,7 +119,6 @@ const NAV_GROUPS: NavGroup[] = [
         href: "/transfers",
         icon: ArrowLeftRight,
         roles: ["super_admin", "branch_manager", "stock_manager"],
-        comingSoon: true,
       },
     ],
   },
@@ -148,7 +147,6 @@ const NAV_GROUPS: NavGroup[] = [
         href: "/branches",
         icon: Building2,
         roles: ["super_admin"],
-        comingSoon: true,
       },
       {
         title: "Staff",
@@ -234,7 +232,7 @@ export function AppSidebar({ role }: { role: UserRole }) {
 
       <SidebarFooter>
         <p className="text-muted-foreground px-2 py-1 text-[10px] group-data-[collapsible=icon]:hidden">
-          Phase 4 · Reporting &amp; money
+          Phase 5 · Multi-branch
         </p>
       </SidebarFooter>
 

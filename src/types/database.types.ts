@@ -1060,6 +1060,151 @@ export type Database = {
           },
         ]
       }
+      stock_transfer_items: {
+        Row: {
+          batch_no: string
+          created_at: string
+          id: string
+          medicine_id: string
+          quantity: number
+          received_quantity: number | null
+          shortfall_reason: string | null
+          source_stock_id: string
+          transfer_id: string
+        }
+        Insert: {
+          batch_no: string
+          created_at?: string
+          id?: string
+          medicine_id: string
+          quantity: number
+          received_quantity?: number | null
+          shortfall_reason?: string | null
+          source_stock_id: string
+          transfer_id: string
+        }
+        Update: {
+          batch_no?: string
+          created_at?: string
+          id?: string
+          medicine_id?: string
+          quantity?: number
+          received_quantity?: number | null
+          shortfall_reason?: string | null
+          source_stock_id?: string
+          transfer_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_transfer_items_medicine_id_fkey"
+            columns: ["medicine_id"]
+            isOneToOne: false
+            referencedRelation: "medicines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_transfer_items_source_stock_id_fkey"
+            columns: ["source_stock_id"]
+            isOneToOne: false
+            referencedRelation: "branch_stocks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_transfer_items_transfer_id_fkey"
+            columns: ["transfer_id"]
+            isOneToOne: false
+            referencedRelation: "stock_transfers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stock_transfers: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          completed_at: string | null
+          created_at: string
+          from_branch_id: string
+          id: string
+          notes: string | null
+          received_by: string | null
+          reference_no: string
+          rejection_reason: string | null
+          status: Database["public"]["Enums"]["transfer_status"]
+          to_branch_id: string
+          transferred_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          completed_at?: string | null
+          created_at?: string
+          from_branch_id: string
+          id?: string
+          notes?: string | null
+          received_by?: string | null
+          reference_no: string
+          rejection_reason?: string | null
+          status?: Database["public"]["Enums"]["transfer_status"]
+          to_branch_id: string
+          transferred_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          completed_at?: string | null
+          created_at?: string
+          from_branch_id?: string
+          id?: string
+          notes?: string | null
+          received_by?: string | null
+          reference_no?: string
+          rejection_reason?: string | null
+          status?: Database["public"]["Enums"]["transfer_status"]
+          to_branch_id?: string
+          transferred_by?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_transfers_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_transfers_from_branch_id_fkey"
+            columns: ["from_branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_transfers_received_by_fkey"
+            columns: ["received_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_transfers_to_branch_id_fkey"
+            columns: ["to_branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_transfers_transferred_by_fkey"
+            columns: ["transferred_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       supplier_payments: {
         Row: {
           amount: number
@@ -1154,11 +1299,31 @@ export type Database = {
         }
         Relationships: []
       }
+      transfer_counters: {
+        Row: {
+          last_number: number
+          year: number
+        }
+        Insert: {
+          last_number?: number
+          year: number
+        }
+        Update: {
+          last_number?: number
+          year?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      approve_stock_transfer: {
+        Args: { p_transfer_id: string }
+        Returns: undefined
+      }
+      can_approve_transfers: { Args: never; Returns: boolean }
       can_manage_catalogue: { Args: never; Returns: boolean }
       can_sell: { Args: never; Returns: boolean }
       create_purchase: {
@@ -1204,6 +1369,15 @@ export type Database = {
         }
         Returns: string
       }
+      create_stock_transfer: {
+        Args: {
+          p_from_branch_id: string
+          p_items: Json
+          p_notes?: string
+          p_to_branch_id: string
+        }
+        Returns: string
+      }
       current_user_branch_id: { Args: never; Returns: string }
       current_user_role: {
         Args: never
@@ -1224,6 +1398,7 @@ export type Database = {
       }
       is_super_admin: { Args: never; Returns: boolean }
       next_invoice_no: { Args: { p_branch_id: string }; Returns: string }
+      next_transfer_no: { Args: never; Returns: string }
       profit_report: {
         Args: { p_branch_id?: string; p_from: string; p_to: string }
         Returns: {
@@ -1236,6 +1411,10 @@ export type Database = {
           strength: string
           units_sold: number
         }[]
+      }
+      receive_stock_transfer: {
+        Args: { p_receipts?: Json; p_transfer_id: string }
+        Returns: undefined
       }
       recompute_customer_balance: {
         Args: { p_customer_id: string }
@@ -1268,6 +1447,10 @@ export type Database = {
         Returns: string
       }
       refresh_stock_alerts: { Args: { p_branch_id?: string }; Returns: number }
+      reject_stock_transfer: {
+        Args: { p_reason: string; p_transfer_id: string }
+        Returns: undefined
+      }
       returned_quantity: { Args: { p_sale_item_id: string }; Returns: number }
       sales_report: {
         Args: {
@@ -1334,6 +1517,7 @@ export type Database = {
         | "transfer_out"
         | "adjustment"
         | "return"
+      transfer_status: "pending" | "approved" | "completed" | "rejected"
       user_role:
         | "super_admin"
         | "branch_manager"
@@ -1488,6 +1672,7 @@ export const Constants = {
         "adjustment",
         "return",
       ],
+      transfer_status: ["pending", "approved", "completed", "rejected"],
       user_role: [
         "super_admin",
         "branch_manager",
