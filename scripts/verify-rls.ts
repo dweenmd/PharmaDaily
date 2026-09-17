@@ -107,6 +107,8 @@ async function cleanup() {
       await admin.from("sales").delete().in("id", saleIds);
     }
 
+    await admin.from("customer_payments").delete().in("branch_id", branchIds);
+    await admin.from("supplier_payments").delete().in("branch_id", branchIds);
     await admin.from("invoice_counters").delete().in("branch_id", branchIds);
     await admin.from("notifications").delete().in("branch_id", branchIds);
     await admin.from("settings").delete().in("branch_id", branchIds);
@@ -797,6 +799,149 @@ async function main() {
 
     check("can still mark an alert as read", markRead === null, markRead?.message);
   }
+
+  // --- Balances are derived, not writable -----------------------------------
+  // (stockManager is created in the Phase 3 section above.)
+  //
+  // These were exploitable before the payment-ledger migration: the UPDATE
+  // grant covered every column, so anyone who could edit a customer could set
+  // their debt to zero. Column-level grants now stop it at the privilege
+  // layer, before RLS is even consulted.
+  // A real credit sale, because the balance is now DERIVED — poking due_amount
+  // directly would be a fiction that the next recompute erases. This is also
+  // what makes the payment check below meaningful.
+  const { data: creditSale } = await admin
+    .from("sales")
+    .insert({
+      branch_id: branchA.id,
+      customer_id: customer.id,
+      invoice_no: "RLSA-2026-9500",
+      subtotal: 5000,
+      discount: 0,
+      total_amount: 5000,
+      paid_amount: 0,
+      due_amount: 5000,
+    })
+    .select("id")
+    .single();
+
+  if (!creditSale) throw new Error("credit sale fixture failed");
+  await admin.rpc("recompute_customer_balance", { p_customer_id: customer.id });
+
+  const { error: wipeCustomerDebt } = await cashier
+    .from("customers")
+    .update({ due_amount: 0 })
+    .eq("id", customer.id);
+
+  const { data: customerAfter } = await admin
+    .from("customers")
+    .select("due_amount")
+    .eq("id", customer.id)
+    .single();
+
+  check(
+    "a cashier cannot wipe a customer's debt",
+    Number(customerAfter?.due_amount) === 5000,
+    `balance is now ${customerAfter?.due_amount}, error was ${wipeCustomerDebt?.message ?? "none"}`,
+  );
+
+  // Same again on the supplier side: an unpaid purchase, not a poked column.
+  await admin.from("purchases").insert({
+    supplier_id: supplier.id,
+    branch_id: branchA.id,
+    invoice_no: "RLS-INV-CREDIT",
+    total_amount: 8000,
+    paid_amount: 0,
+    due_amount: 8000,
+  });
+  await admin.rpc("recompute_supplier_balance", { p_supplier_id: supplier.id });
+
+  // Compared against what the balance actually is rather than a hard-coded
+  // figure: earlier fixtures in this run also owe this supplier, and a test
+  // that assumes otherwise fails for the wrong reason.
+  const { data: supplierBefore } = await admin
+    .from("suppliers")
+    .select("due_amount")
+    .eq("id", supplier.id)
+    .single();
+
+  const { error: wipeSupplierDebt } = await stockManager
+    .from("suppliers")
+    .update({ due_amount: 0 })
+    .eq("id", supplier.id);
+
+  const { data: supplierAfter } = await admin
+    .from("suppliers")
+    .select("due_amount")
+    .eq("id", supplier.id)
+    .single();
+
+  check(
+    "a stock manager cannot hide what the business owes a supplier",
+    Number(supplierAfter?.due_amount) === Number(supplierBefore?.due_amount) &&
+      Number(supplierAfter?.due_amount) > 0,
+    `balance went ${supplierBefore?.due_amount} -> ${supplierAfter?.due_amount}, error was ${wipeSupplierDebt?.message ?? "none"}`,
+  );
+
+  // Editing the contact details IS allowed — a cashier fixing a typo'd phone
+  // number is routine. Only the money columns are frozen.
+  const { error: renameCustomer } = await cashier
+    .from("customers")
+    .update({ phone: "+8801700000000" })
+    .eq("id", customer.id);
+
+  check(
+    "but can still correct a customer's contact details",
+    renameCustomer === null,
+    renameCustomer?.message,
+  );
+
+  // Recording a payment is the sanctioned way to reduce a balance, and it
+  // cannot be used to take more than is owed.
+  const { error: overPayment } = await cashier.rpc("record_customer_payment", {
+    p_customer_id: customer.id,
+    p_branch_id: branchA.id,
+    p_amount: 999999,
+    p_method: "cash",
+  });
+
+  check(
+    "cannot record a payment larger than the debt",
+    overPayment !== null,
+    overPayment ? undefined : "the balance could be driven negative",
+  );
+
+  const { error: goodPayment } = await cashier.rpc("record_customer_payment", {
+    p_customer_id: customer.id,
+    p_branch_id: branchA.id,
+    p_amount: 2000,
+    p_method: "cash",
+  });
+
+  const { data: afterPayment } = await admin
+    .from("customers")
+    .select("due_amount")
+    .eq("id", customer.id)
+    .single();
+
+  check(
+    "recording a payment reduces the balance",
+    goodPayment === null && Number(afterPayment?.due_amount) === 3000,
+    `balance is ${afterPayment?.due_amount}, error was ${goodPayment?.message ?? "none"}`,
+  );
+
+  const { error: cashierPaysSupplier } = await cashier.rpc("record_supplier_payment", {
+    p_supplier_id: supplier.id,
+    p_branch_id: branchA.id,
+    p_amount: 100,
+    p_method: "cash",
+  });
+
+  check(
+    "a cashier cannot pay a supplier",
+    cashierPaysSupplier !== null,
+    cashierPaysSupplier ? undefined : "the payment went through",
+  );
 
   // --- Settings are a manager's call ----------------------------------------
   const { error: cashierSetting } = await cashier.from("settings").insert({

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Plus, Truck } from "lucide-react";
 
 import { getSuppliers } from "@/features/suppliers/queries";
+import { RecordPaymentDialog } from "@/features/customers/components/record-payment-dialog";
 import { getCurrentProfile } from "@/lib/auth/get-current-profile";
 import { formatCurrency, toNumber } from "@/lib/format";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -32,6 +33,13 @@ export default async function SuppliersPage() {
   ]);
 
   const canEdit = profile ? CATALOGUE_EDITORS.includes(profile.role) : false;
+
+  // Paying a supplier is a management decision, and it has to be booked
+  // against a branch — so a super admin without one reviews rather than pays.
+  const canPay =
+    profile !== null &&
+    ["super_admin", "branch_manager"].includes(profile.role) &&
+    profile.branch_id !== null;
 
   const totalDue = suppliers.reduce((sum, s) => sum + toNumber(s.due_amount), 0);
   const withDue = suppliers.filter((s) => toNumber(s.due_amount) > 0);
@@ -102,7 +110,7 @@ export default async function SuppliersPage() {
                     <TableHead className="hidden lg:table-cell">Address</TableHead>
                     <TableHead className="text-right">Due</TableHead>
                     <TableHead>Status</TableHead>
-                    {canEdit && <TableHead className="w-16" />}
+                    {canEdit && <TableHead className="w-48 text-right">Actions</TableHead>}
                   </TableRow>
                 </TableHeader>
 
@@ -130,9 +138,20 @@ export default async function SuppliersPage() {
                         </TableCell>
                         {canEdit && (
                           <TableCell>
-                            <Button asChild variant="ghost" size="sm">
-                              <Link href={`/suppliers/${s.id}/edit`}>Edit</Link>
-                            </Button>
+                            <div className="flex items-center justify-end gap-1">
+                              {canPay && due > 0 && (
+                                <RecordPaymentDialog
+                                  kind="supplier"
+                                  targetId={s.id}
+                                  targetName={s.name}
+                                  branchId={profile.branch_id!}
+                                  outstanding={due}
+                                />
+                              )}
+                              <Button asChild variant="ghost" size="sm">
+                                <Link href={`/suppliers/${s.id}/edit`}>Edit</Link>
+                              </Button>
+                            </div>
                           </TableCell>
                         )}
                       </TableRow>

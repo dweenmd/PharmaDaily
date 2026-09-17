@@ -66,3 +66,6 @@ export type SalesTrendPoint = Functions["sales_trend"]["Returns"][number];
 export type ProfitReportRow = Functions["profit_report"]["Returns"][number];
 export type StockReportRow = Functions["stock_report"]["Returns"][number];
 export type SalesReportRow = Functions["sales_report"]["Returns"][number];
+
+export type CustomerPaymentRow = Tables["customer_payments"]["Row"];
+export type SupplierPaymentRow = Tables["supplier_payments"]["Row"];

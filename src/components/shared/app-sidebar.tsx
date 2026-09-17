@@ -67,6 +67,12 @@ const NAV_GROUPS: NavGroup[] = [
     label: "Sell",
     items: [
       {
+        title: "Customers",
+        href: "/customers",
+        icon: Users,
+        roles: ["super_admin", "branch_manager", "cashier", "pharmacist"],
+      },
+      {
         title: "POS / Billing",
         href: "/pos",
         icon: ShoppingCart,
