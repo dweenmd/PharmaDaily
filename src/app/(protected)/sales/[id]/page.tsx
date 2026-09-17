@@ -4,9 +4,12 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, CheckCircle2, RotateCcw } from "lucide-react";
 
 import { InvoiceActions } from "@/features/sales/components/invoice-actions";
+import { ReceiptPrintStyle } from "@/features/sales/components/receipt-print-style";
 import { getSaleById } from "@/features/sales/queries";
+import { getReceiptPaperSize } from "@/features/settings/queries";
 import { PAYMENT_METHOD_LABELS } from "@/features/sales/schemas";
 import { formatCurrency, formatDateTime } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -33,11 +36,16 @@ export default async function SaleDetailPage({
   const sale = await getSaleById(id);
   if (!sale) notFound();
 
+  const paperSize = await getReceiptPaperSize(sale.branch_id);
+  const isThermal = paperSize !== "a4";
+
   const returnable = sale.items.some((i) => i.quantity - i.returned_quantity > 0);
   const anyReturned = sale.items.some((i) => i.returned_quantity > 0);
 
   return (
     <div className="mx-auto max-w-3xl space-y-5">
+      <ReceiptPrintStyle paperSize={paperSize} />
+
       <div className="flex items-center justify-between gap-2 print:hidden">
         <Button asChild variant="ghost" size="sm" className="-ml-2">
           <Link href="/sales">
@@ -65,12 +73,41 @@ export default async function SaleDetailPage({
         </Alert>
       )}
 
-      {/* The invoice itself. Everything outside this card is hidden when printed. */}
-      <Card className="print:border-0 print:shadow-none">
-        <CardContent className="space-y-5 pt-6">
-          <div className="flex items-start justify-between gap-4">
+      {/*
+        The invoice itself. Everything outside this card is hidden when
+        printed. On a 58/80mm till printer, `print:w-[Xmm]` matches the card
+        to the roll (paired with the @page size in ReceiptPrintStyle) and the
+        rest of the print: classes below compact the layout to fit it — a
+        card sized for a phone screen, not shrunk from a desktop one.
+      */}
+      <Card
+        className={cn(
+          "print:border-0 print:shadow-none",
+          // Tailwind's compiler scans source text for literal class names —
+          // it cannot see a class assembled from a runtime variable like
+          // `` `print:w-[${paperSize}]` ``, so every width this could ever be
+          // has to appear here spelled out, not interpolated.
+          isThermal && "print:mx-auto print:text-[10px]",
+          paperSize === "58mm" && "print:w-[58mm]",
+          paperSize === "80mm" && "print:w-[80mm]",
+        )}
+      >
+        <CardContent className={cn("space-y-5 pt-6", isThermal && "print:space-y-2 print:p-2")}>
+          <div
+            className={cn(
+              "flex items-start justify-between gap-4",
+              isThermal && "print:flex-col print:items-center print:text-center",
+            )}
+          >
             <div>
-              <h1 className="text-lg font-semibold">{sale.branch?.name ?? "PharmaDaily"}</h1>
+              <h1
+                className={cn(
+                  "text-lg font-semibold",
+                  isThermal && "print:text-sm print:uppercase",
+                )}
+              >
+                {sale.branch?.name ?? "PharmaDaily"}
+              </h1>
               {sale.branch?.address && (
                 <p className="text-muted-foreground text-xs">{sale.branch.address}</p>
               )}
@@ -79,7 +116,7 @@ export default async function SaleDetailPage({
               )}
             </div>
 
-            <div className="text-right">
+            <div className={cn("text-right", isThermal && "print:text-center")}>
               <p className="font-mono text-sm font-semibold">{sale.invoice_no}</p>
               <p className="text-muted-foreground text-xs">{formatDateTime(sale.created_at)}</p>
             </div>
@@ -109,16 +146,16 @@ export default async function SaleDetailPage({
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-muted-foreground border-b text-left text-xs">
-                  <th className="pb-2 font-medium">Item</th>
-                  <th className="pb-2 text-right font-medium">Qty</th>
-                  <th className="pb-2 text-right font-medium">Price</th>
-                  <th className="pb-2 text-right font-medium">Amount</th>
+                  <th className="pb-2 font-medium print:pb-1">Item</th>
+                  <th className="pb-2 text-right font-medium print:pb-1">Qty</th>
+                  <th className="pb-2 text-right font-medium print:pb-1">Price</th>
+                  <th className="pb-2 text-right font-medium print:pb-1">Amount</th>
                 </tr>
               </thead>
               <tbody>
                 {sale.items.map((item) => (
                   <tr key={item.id} className="border-b last:border-0">
-                    <td className="py-2">
+                    <td className="py-2 print:py-1">
                       <span className="font-medium">
                         {[item.medicine?.name, item.medicine?.strength].filter(Boolean).join(" ")}
                       </span>
@@ -131,11 +168,11 @@ export default async function SaleDetailPage({
                         )}
                       </span>
                     </td>
-                    <td className="py-2 text-right tabular-nums">{item.quantity}</td>
-                    <td className="py-2 text-right tabular-nums">
+                    <td className="py-2 text-right tabular-nums print:py-1">{item.quantity}</td>
+                    <td className="py-2 text-right tabular-nums print:py-1">
                       {formatCurrency(item.unit_price)}
                     </td>
-                    <td className="py-2 text-right tabular-nums">
+                    <td className="py-2 text-right tabular-nums print:py-1">
                       {formatCurrency(item.total_price)}
                     </td>
                   </tr>
