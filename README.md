@@ -26,7 +26,17 @@ Consequences worth knowing before you change anything:
 - Profile rows are created only by the `handle_new_user()` trigger, which never reads `role` or `branch_id` from signup metadata. A new account is inert until an administrator provisions it.
 - A `BEFORE UPDATE` trigger freezes `role`, `branch_id`, `is_active`, `deleted_at` and `auth_id` against self-service updates — the column-level gap that row-scoped RLS cannot express on its own.
 
-`npm run verify:rls` proves all of this against a real database. Run it after any migration that adds a table or touches a policy.
+### Grants and policies are different things
+
+Policies decide **which rows**. Grants decide **which verbs**. Getting the policies right while leaving the verbs open means a user can do the wrong thing to the right rows — which is exactly what happened here and was only found by probing.
+
+Supabase grants `ALL` on a new public-schema table to `anon` and `authenticated`. Every migration revoked from `anon` and then *added* grants for `authenticated`, which was a no-op on top of a grant that already included `DELETE`. Ledger entries described as append-only could be deleted; stock rows could be removed outright; a short till could be closed as balanced by writing the variance directly. The policies were never wrong.
+
+Grants are now reset explicitly for every table, and the schema default privileges are revoked so a future table that forgets to grant is unreadable — failing loudly in development — rather than deletable by everyone, which fails silently in production.
+
+One residual, stated plainly: **a stock ledger entry can be inserted by hand** by anyone who may sell or manage stock at that branch. It has to be, because the transaction functions run `SECURITY INVOKER` and need the caller to hold that grant. The ledger's guarantee is the one a paper ledger has — entries cannot be altered or torn out. A fabricated entry is still traceable, because moving the matching stock means updating `branch_stocks`, and that is written to the audit log with a name against it.
+
+`npm run verify:rls` proves all of this against a real database. Run it after any migration that adds a table or touches a policy — **or a grant**.
 
 ## Inventory integrity
 
@@ -189,7 +199,7 @@ Local development needs nothing hosted. When you are ready to deploy:
 | `npm run verify:rls` | Access-control regression test |
 | `npm run verify:tx` | Inventory transaction regression test |
 
-Both suites run against the live database and exit non-zero on any failure. Current: **53 access-control checks, 52 transaction checks**.
+Both suites run against the live database and exit non-zero on any failure. Current: **61 access-control checks, 70 transaction checks**.
 
 ---
 
@@ -232,7 +242,7 @@ scripts/                  Seeding, RLS verification, icon generation
 | 3 | POS, billing, sales returns | Complete |
 | 4 | Dashboard and reports | Complete |
 | 5 | Multi-branch operations and stock transfers | Complete |
-| 6 | Offline sync, mobile payments, audit log | Next |
+| 6 | Offline sync, audit log, cash management | Complete |
 
 Every table has carried `branch_id` since Phase 1, so multi-branch support in Phase 5 is a user-interface and workflow exercise rather than a migration.
 

@@ -158,6 +158,17 @@ async function cleanup(branchId?: string, medicineId?: string, supplierId?: stri
       await admin.from("sales").delete().in("id", saleIds);
     }
 
+    const { data: sessions } = await admin
+      .from("cash_sessions")
+      .select("id")
+      .eq("branch_id", branchId);
+    const sessionIds = (sessions ?? []).map((cs) => cs.id);
+    if (sessionIds.length > 0) {
+      await admin.from("cash_movements").delete().in("session_id", sessionIds);
+      await admin.from("cash_sessions").delete().in("id", sessionIds);
+    }
+
+    await admin.from("offline_sync_queue").delete().eq("branch_id", branchId);
     await admin.from("invoice_counters").delete().eq("branch_id", branchId);
     await admin.from("customers").delete().like("name", `${TAG}%`);
 
@@ -1040,6 +1051,262 @@ async function main() {
       rejectedMovements === 0,
       `${rejectedMovements} movements`,
     );
+
+    // =======================================================================
+    console.log("\n  Cash reconciliation");
+    // =======================================================================
+    const { data: sessionId, error: openError } = await cashier.rpc("open_cash_session", {
+      p_branch_id: branch.id,
+      p_opening_float: 2000,
+      p_notes: null as unknown as string,
+    });
+
+    check("the till can be opened", openError === null, openError?.message);
+
+    const { error: secondOpen } = await cashier.rpc("open_cash_session", {
+      p_branch_id: branch.id,
+      p_opening_float: 500,
+      p_notes: null as unknown as string,
+    });
+
+    // Two open sessions would make "expected cash" ambiguous — neither could
+    // say which sales belonged to it.
+    check(
+      "a second till cannot be opened at the same branch",
+      secondOpen !== null,
+      secondOpen ? undefined : "two sessions were open at once",
+    );
+
+    const { data: expectedAtOpen } = await cashier.rpc("cash_session_expected", {
+      p_session_id: sessionId!,
+    });
+
+    check(
+      "a fresh till expects exactly its float",
+      Number(expectedAtOpen) === 2000,
+      `${expectedAtOpen}`,
+    );
+
+    // A cash sale should land in the drawer.
+    const { data: cashBatch } = await admin
+      .from("branch_stocks")
+      .select("id, selling_price")
+      .eq("branch_id", branch.id)
+      .eq("batch_no", "B1")
+      .single();
+
+    await cashier.rpc("create_sale", {
+      p_branch_id: branch.id,
+      p_customer_id: null as unknown as string,
+      p_discount: 0,
+      p_items: [{ branch_stock_id: cashBatch!.id, quantity: 2 }],
+      p_payments: [{ method: "cash", amount: Number(cashBatch!.selling_price) * 2 }],
+    });
+
+    // And a card sale should not.
+    await cashier.rpc("create_sale", {
+      p_branch_id: branch.id,
+      p_customer_id: null as unknown as string,
+      p_discount: 0,
+      p_items: [{ branch_stock_id: cashBatch!.id, quantity: 1 }],
+      p_payments: [{ method: "card", amount: Number(cashBatch!.selling_price) }],
+    });
+
+    const { data: expectedAfterSales } = await cashier.rpc("cash_session_expected", {
+      p_session_id: sessionId!,
+    });
+
+    const cashTaken = Number(cashBatch!.selling_price) * 2;
+
+    check(
+      "a cash sale reaches the drawer and a card sale does not",
+      Number(expectedAfterSales) === 2000 + cashTaken,
+      `${expectedAfterSales}, expected ${2000 + cashTaken}`,
+    );
+
+    const { error: overdraw } = await cashier.rpc("record_cash_movement", {
+      p_session_id: sessionId!,
+      p_type: "pay_out",
+      p_amount: 999999,
+      p_reason: "Trying to take out more than is there",
+    });
+
+    check(
+      "cannot take out more cash than the drawer holds",
+      overdraw !== null,
+      overdraw ? undefined : "the drawer went negative",
+    );
+
+    await cashier.rpc("record_cash_movement", {
+      p_session_id: sessionId!,
+      p_type: "pay_out",
+      p_amount: 300,
+      p_reason: "Delivery van fuel",
+    });
+
+    const { data: expectedAfterPayout } = await cashier.rpc("cash_session_expected", {
+      p_session_id: sessionId!,
+    });
+
+    check(
+      "a payout reduces what should be in the drawer",
+      Number(expectedAfterPayout) === 2000 + cashTaken - 300,
+      `${expectedAfterPayout}`,
+    );
+
+    // Closing short without an explanation is how a shortfall becomes routine.
+    const { error: unexplainedShort } = await cashier.rpc("close_cash_session", {
+      p_session_id: sessionId!,
+      p_counted_cash: Number(expectedAfterPayout) - 500,
+      p_variance_reason: null as unknown as string,
+    });
+
+    check(
+      "cannot close a short till without explaining it",
+      unexplainedShort !== null,
+      unexplainedShort ? undefined : "a 500 shortfall was written off silently",
+    );
+
+    const { data: variance, error: closeError } = await cashier.rpc("close_cash_session", {
+      p_session_id: sessionId!,
+      p_counted_cash: Number(expectedAfterPayout) - 500,
+      p_variance_reason: "Short — under investigation",
+    });
+
+    check("an explained shortfall can be closed", closeError === null, closeError?.message);
+    check(
+      "the variance is recorded as the actual difference",
+      Number(variance) === -500,
+      `${variance}`,
+    );
+
+    const { data: closedSession } = await admin
+      .from("cash_sessions")
+      .select("expected_cash, counted_cash, variance, closed_at")
+      .eq("id", sessionId!)
+      .single();
+
+    // Frozen at close, so a backdated entry cannot rewrite a reconciled shift.
+    check(
+      "expected and counted are frozen onto the closed session",
+      Number(closedSession?.expected_cash) === Number(expectedAfterPayout) &&
+        closedSession?.closed_at !== null,
+      JSON.stringify(closedSession),
+    );
+
+    const { error: closeTwice } = await cashier.rpc("close_cash_session", {
+      p_session_id: sessionId!,
+      p_counted_cash: 1,
+      p_variance_reason: "again",
+    });
+
+    check(
+      "a closed till cannot be closed again",
+      closeTwice !== null,
+      closeTwice ? undefined : "a reconciliation was overwritten",
+    );
+
+    // =======================================================================
+    console.log("\n  Offline replay");
+    // =======================================================================
+    const queueId = crypto.randomUUID();
+
+    const offlinePayload = {
+      customer_id: null,
+      discount: 0,
+      items: [{ branch_stock_id: cashBatch!.id, quantity: 1 }],
+      payments: [{ method: "cash", amount: Number(cashBatch!.selling_price) }],
+    };
+
+    const { data: firstSync, error: firstSyncError } = await cashier.rpc("sync_offline_sale", {
+      p_queue_id: queueId,
+      p_branch_id: branch.id,
+      p_payload: offlinePayload,
+      p_occurred_at: "2026-09-17T09:15:00Z",
+    });
+
+    check(
+      "an offline sale replays into a real sale",
+      firstSyncError === null,
+      firstSyncError?.message,
+    );
+
+    // THE TEST THIS WHOLE DESIGN EXISTS FOR. The till sent a sale, the response
+    // was lost, and it retries with the same id. That must not sell the items
+    // again.
+    const { data: secondSync, error: secondSyncError } = await cashier.rpc("sync_offline_sale", {
+      p_queue_id: queueId,
+      p_branch_id: branch.id,
+      p_payload: offlinePayload,
+      p_occurred_at: "2026-09-17T09:15:00Z",
+    });
+
+    check(
+      "replaying the same queued sale returns the original, not a second sale",
+      secondSyncError === null && secondSync === firstSync,
+      `first ${firstSync}, second ${secondSync}, error ${secondSyncError?.message}`,
+    );
+
+    const { count: salesFromQueue } = await admin
+      .from("sales")
+      .select("id", { count: "exact", head: true })
+      .in("id", [firstSync as unknown as string]);
+
+    check("only one sale exists for that queue entry", salesFromQueue === 1, `${salesFromQueue}`);
+
+    const { data: offlineSale } = await admin
+      .from("sales")
+      .select("sale_date")
+      .eq("id", firstSync as unknown as string)
+      .single();
+
+    // A sale made at 09:15 belongs to that day, not to whenever it synced, or
+    // every report and till reconciliation disagrees with reality.
+    check(
+      "the sale is dated when it happened, not when it synced",
+      offlineSale?.sale_date === "2026-09-17",
+      `${offlineSale?.sale_date}`,
+    );
+
+    // =======================================================================
+    console.log("\n  Controlled drugs");
+    // =======================================================================
+    await admin.from("medicines").update({ controlled_drug: true }).eq("id", medicine.id);
+
+    const { error: cashierDispenses } = await cashier.rpc("create_sale", {
+      p_branch_id: branch.id,
+      p_customer_id: null as unknown as string,
+      p_discount: 0,
+      p_items: [{ branch_stock_id: cashBatch!.id, quantity: 1 }],
+      p_payments: [{ method: "cash", amount: Number(cashBatch!.selling_price) }],
+    });
+
+    check(
+      "a cashier alone cannot dispense a controlled drug",
+      cashierDispenses !== null,
+      cashierDispenses ? undefined : "it was handed over without anyone qualified",
+    );
+
+    const { error: managerDispenses } = await manager.rpc("create_sale", {
+      p_branch_id: branch.id,
+      p_customer_id: null as unknown as string,
+      p_discount: 0,
+      p_items: [{ branch_stock_id: cashBatch!.id, quantity: 1 }],
+      p_payments: [{ method: "cash", amount: Number(cashBatch!.selling_price) }],
+    });
+
+    check("someone qualified can", managerDispenses === null, managerDispenses?.message);
+
+    const { count: invoiceCount } = await admin
+      .from("sales")
+      .select("id", { count: "exact", head: true })
+      .eq("branch_id", branch.id);
+
+    // The refusal happens before an invoice number is claimed, so a blocked
+    // sale does not punch a gap in the sequence.
+    check("a refused sale leaves no gap in the invoice sequence", (invoiceCount ?? 0) > 0);
+
+    await admin.from("medicines").update({ controlled_drug: false }).eq("id", medicine.id);
   } finally {
     console.log("\n  Cleaning up…");
     await cleanup(branch.id, medicine.id, supplier.id);

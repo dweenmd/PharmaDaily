@@ -121,6 +121,18 @@ async function cleanup() {
       await admin.from("stock_transfers").delete().in("id", transferIds);
     }
 
+    const { data: testSessions } = await admin
+      .from("cash_sessions")
+      .select("id")
+      .in("branch_id", branchIds);
+    const sessionIds = (testSessions ?? []).map((cs) => cs.id);
+    if (sessionIds.length > 0) {
+      await admin.from("cash_movements").delete().in("session_id", sessionIds);
+      await admin.from("cash_sessions").delete().in("id", sessionIds);
+    }
+
+    await admin.from("offline_sync_queue").delete().in("branch_id", branchIds);
+    await admin.from("audit_logs").delete().in("branch_id", branchIds);
     await admin.from("customer_payments").delete().in("branch_id", branchIds);
     await admin.from("supplier_payments").delete().in("branch_id", branchIds);
     await admin.from("invoice_counters").delete().in("branch_id", branchIds);
@@ -1018,6 +1030,127 @@ async function main() {
       "a branch cannot help itself to another branch's stock by requesting a transfer",
       uninvolvedRequest !== null,
       uninvolvedRequest ? undefined : "branch B pulled stock out of branch A",
+    );
+  }
+
+  // --- Grants, as opposed to policies ---------------------------------------
+  //
+  // These exist because every one of them was ALLOWED until the grant reset.
+  // Supabase grants ALL on a new public table to authenticated; the migrations
+  // revoked from anon and then ADDED grants, which was a no-op on top of a
+  // grant that already included DELETE. Policies decide which rows; grants
+  // decide which verbs, and the verbs were wide open while the policies looked
+  // correct.
+  const { error: deleteStock } = await a
+    .from("branch_stocks")
+    .delete()
+    .eq("id", stockRows.find((s) => s.branch_id === branchA.id)!.id);
+
+  check(
+    "stock rows cannot be deleted, only adjusted",
+    deleteStock !== null,
+    deleteStock ? undefined : "a batch could be made to vanish",
+  );
+
+  const { data: ledgerRow } = await admin
+    .from("stock_movements")
+    .insert({
+      branch_id: branchA.id,
+      medicine_id: medicine.id,
+      batch_no: "RLSBATCH-A",
+      type: "purchase",
+      quantity: 5,
+    })
+    .select("id")
+    .single();
+
+  if (ledgerRow) {
+    const { error: deleteLedger } = await a.from("stock_movements").delete().eq("id", ledgerRow.id);
+
+    check(
+      "ledger entries cannot be deleted",
+      deleteLedger !== null,
+      deleteLedger ? undefined : "the inventory ledger could be edited after the fact",
+    );
+  }
+
+  const { error: deleteMedicine } = await a.from("medicines").delete().eq("id", medicine.id);
+
+  check(
+    "catalogue rows cannot be deleted, only archived",
+    deleteMedicine !== null,
+    deleteMedicine ? undefined : "history referencing this medicine could be orphaned",
+  );
+
+  const { error: deletePayment } = await a.from("payments").delete().neq("id", medicine.id);
+
+  check(
+    "recorded tenders cannot be deleted",
+    deletePayment !== null,
+    deletePayment ? undefined : "cash could be removed from the till record",
+  );
+
+  // NOTE on what is NOT guaranteed: inserting a stock_movements row by hand IS
+  // possible for anyone who may sell or manage stock at that branch. It has to
+  // be — create_sale() and create_purchase() run SECURITY INVOKER, so the
+  // caller needs the INSERT grant for the ordinary path to work at all.
+  //
+  // The ledger's guarantee is therefore the one a paper ledger has: entries
+  // cannot be altered or torn out. A fabricated entry is still detectable,
+  // because moving the matching stock means updating branch_stocks, and that
+  // update is written to the audit log with a name against it.
+
+  // --- SECURITY DEFINER functions must do their own branch check ------------
+  //
+  // open_cash_session and its siblings are DEFINER, because the cash tables
+  // stay ungranted so expected_cash can never be supplied rather than
+  // computed. That means RLS is NOT protecting them and the branch check is
+  // written by hand — which is exactly the kind of check that gets forgotten,
+  // so it is asserted here rather than assumed.
+  const { error: tillAtOtherBranch } = await a.rpc("open_cash_session", {
+    p_branch_id: branchB.id,
+    p_opening_float: 1000,
+    p_notes: null as unknown as string,
+  });
+
+  check(
+    "cannot open a till at another branch",
+    tillAtOtherBranch !== null,
+    tillAtOtherBranch ? undefined : "a DEFINER function skipped its branch check",
+  );
+
+  const { data: ownTill } = await a.rpc("open_cash_session", {
+    p_branch_id: branchA.id,
+    p_opening_float: 1000,
+    p_notes: null as unknown as string,
+  });
+
+  check("can open a till at their own branch", ownTill !== null);
+
+  if (ownTill) {
+    const { error: otherBranchCloses } = await b.rpc("close_cash_session", {
+      p_session_id: ownTill as unknown as string,
+      p_counted_cash: 1000,
+      p_variance_reason: null as unknown as string,
+    });
+
+    check(
+      "another branch cannot close someone else's till",
+      otherBranchCloses !== null,
+      otherBranchCloses ? undefined : "a branch reconciled a drawer it cannot see",
+    );
+
+    // The reason the table stays ungranted: a settable variance would let a
+    // short drawer be closed as balanced.
+    const { error: directClose } = await a
+      .from("cash_sessions")
+      .update({ counted_cash: 1000, expected_cash: 1000, variance: 0 })
+      .eq("id", ownTill as unknown as string);
+
+    check(
+      "a till cannot be reconciled by writing the figures directly",
+      directClose !== null,
+      directClose ? undefined : "a shortfall could be typed away",
     );
   }
 

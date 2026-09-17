@@ -1588,6 +1588,7 @@ export type Database = {
         Returns: undefined
       }
       can_approve_transfers: { Args: never; Returns: boolean }
+      can_dispense_controlled: { Args: never; Returns: boolean }
       can_manage_catalogue: { Args: never; Returns: boolean }
       can_sell: { Args: never; Returns: boolean }
       cash_session_expected: { Args: { p_session_id: string }; Returns: number }
