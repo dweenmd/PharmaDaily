@@ -7,13 +7,12 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 
+import { createBranchAction, updateBranchAction } from "@/features/branches/actions";
 import {
   branchSchema,
-  createBranchAction,
-  updateBranchAction,
   type BranchFormValues,
   type BranchInput,
-} from "@/features/branches/actions";
+} from "@/features/branches/schemas";
 import { type BranchRow } from "@/types";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";

@@ -7,12 +7,12 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { AlertCircle, ArrowRight, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
+import { createTransferAction } from "@/features/transfers/actions";
 import {
-  createTransferAction,
   transferSchema,
   type TransferFormValues,
   type TransferInput,
-} from "@/features/transfers/actions";
+} from "@/features/transfers/schemas";
 import { type StockRow } from "@/features/stock/queries";
 import { BatchCombobox } from "@/components/shared/batch-combobox";
 import { Alert, AlertDescription } from "@/components/ui/alert";

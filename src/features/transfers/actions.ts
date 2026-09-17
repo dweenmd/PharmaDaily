@@ -1,30 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { z } from "zod";
 
 import { createClient } from "@/lib/supabase/server";
 import { type ActionResult } from "@/features/medicines/schemas";
-
-export const transferItemSchema = z.object({
-  source_stock_id: z.string().uuid("Select a batch"),
-  quantity: z.coerce.number().int("Whole units only").positive("Quantity must be at least 1"),
-});
-
-export const transferSchema = z.object({
-  from_branch_id: z.string().uuid("Select the sending branch"),
-  to_branch_id: z.string().uuid("Select the receiving branch"),
-  notes: z
-    .string()
-    .trim()
-    .max(500)
-    .optional()
-    .transform((v) => (v === "" || v === undefined ? null : v)),
-  items: z.array(transferItemSchema).min(1, "Add at least one item"),
-});
-
-export type TransferFormValues = z.input<typeof transferSchema>;
-export type TransferInput = z.output<typeof transferSchema>;
+import { transferSchema, type TransferInput } from "@/features/transfers/schemas";
 
 function friendly(error: { code?: string; message?: string }): string {
   if (error.code === "42501") return "You do not have permission to do that.";
