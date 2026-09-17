@@ -15,6 +15,7 @@ import {
   type StockAdjustmentInput,
 } from "@/features/stock/schemas";
 import { type StockRow } from "@/features/stock/queries";
+import { BatchCombobox } from "@/components/shared/batch-combobox";
 import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -110,19 +111,14 @@ export function StockAdjustmentForm({ batches }: { batches: StockRow[] }) {
             <FieldLabel htmlFor="branch_stock_id">
               Which batch <span className="text-destructive">*</span>
             </FieldLabel>
-            <Select value={selectedId} onValueChange={selectBatch} disabled={isPending}>
-              <SelectTrigger id="branch_stock_id" aria-invalid={!!errors.branch_stock_id}>
-                <SelectValue placeholder="Select a batch" />
-              </SelectTrigger>
-              <SelectContent>
-                {batches.map((b) => (
-                  <SelectItem key={b.id} value={b.id}>
-                    {[b.medicine?.name, b.medicine?.strength].filter(Boolean).join(" ")} · batch{" "}
-                    {b.batch_no} · {b.quantity} in stock
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <BatchCombobox
+              id="branch_stock_id"
+              batches={batches}
+              value={selectedId}
+              disabled={isPending}
+              aria-invalid={!!errors.branch_stock_id}
+              onSelect={(batch) => selectBatch(batch.id)}
+            />
             {errors.branch_stock_id && <FieldError>{errors.branch_stock_id.message}</FieldError>}
           </Field>
 

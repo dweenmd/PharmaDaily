@@ -59,39 +59,33 @@ function normalise(rows: Record<string, unknown>[]): StockRow[] {
  *
  * Branch scoping comes from RLS, not from a filter here.
  */
+export const STOCK_ROW_LIMIT = 1000;
+
 export const getStock = cache(
-  async (opts: { search?: string; includeEmpty?: boolean } = {}): Promise<StockRow[]> => {
+  async (opts: { includeEmpty?: boolean } = {}): Promise<StockRow[]> => {
     const supabase = await createClient();
 
     let query = supabase
       .from("branch_stocks")
       .select(STOCK_SELECT)
       .order("expiry_date", { ascending: true })
-      .limit(1000);
+      .limit(STOCK_ROW_LIMIT);
 
     if (!opts.includeEmpty) query = query.gt("quantity", 0);
 
     const { data, error } = await query;
     if (error) return [];
 
-    let rows = normalise((data ?? []) as never);
-
-    // Filtering on an embedded relation is awkward in PostgREST, and the row
-    // count here is bounded by the query above, so this last step happens in
-    // memory rather than contorting the query.
-    if (opts.search) {
-      const term = opts.search.toLowerCase().trim();
-      rows = rows.filter(
-        (r) =>
-          r.medicine?.name.toLowerCase().includes(term) ||
-          r.medicine?.generic_name?.toLowerCase().includes(term) ||
-          r.batch_no.toLowerCase().includes(term),
-      );
-    }
-
-    return rows;
+    return normalise((data ?? []) as never);
   },
 );
+
+// A `search` option used to live here, filtering the fetched page in memory.
+// That is a trap rather than a feature: past STOCK_ROW_LIMIT batches it would
+// quietly search only the first page and report "no match" for stock that is
+// on the shelf. Callers that need search should filter in the database, or
+// use the batch picker, which searches the list it was given. The stock page
+// says plainly when the list is truncated.
 
 export type StockAggregate = {
   medicine_id: string;

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Boxes, ScrollText, SlidersHorizontal, TriangleAlert } from "lucide-react";
 
-import { getStock } from "@/features/stock/queries";
+import { STOCK_ROW_LIMIT, getStock } from "@/features/stock/queries";
 import { getCurrentProfile } from "@/lib/auth/get-current-profile";
 import { isSuperAdmin } from "@/lib/auth/roles";
 import { daysUntil, expiryStatus, formatCurrency, formatDate, toNumber } from "@/lib/format";
@@ -217,6 +217,13 @@ export default async function StockPage() {
             Ordered by expiry date — the soonest-expiring batch of each medicine is the one the
             counter should sell first.
           </p>
+
+          {stock.length >= STOCK_ROW_LIMIT && (
+            <p className="text-center text-xs text-amber-700 dark:text-amber-500">
+              Showing the first {STOCK_ROW_LIMIT} batches by expiry date. Later-expiring batches are
+              not listed.
+            </p>
+          )}
         </>
       )}
     </div>

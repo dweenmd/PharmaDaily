@@ -4,6 +4,7 @@ import { getAccessibleBranches } from "@/features/branches/queries";
 import { ExportButtons } from "@/features/reports/components/export-buttons";
 import { ReportFilters } from "@/features/reports/components/report-filters";
 import { getProfitReport } from "@/features/reports/queries";
+import { getExpenseTotal } from "@/features/expenses/queries";
 import { getCurrentProfile } from "@/lib/auth/get-current-profile";
 import { isSuperAdmin } from "@/lib/auth/roles";
 import { formatCurrency, formatDate } from "@/lib/format";
@@ -45,15 +46,22 @@ export default async function ProfitReportPage({
   const superAdmin = profile ? isSuperAdmin(profile.role) : false;
   const branchFilter = superAdmin ? branch : (profile?.branch_id ?? null);
 
-  const [branches, rows] = await Promise.all([
+  const [branches, rows, expenses] = await Promise.all([
     getAccessibleBranches(),
     getProfitReport(from, to, branchFilter),
+    getExpenseTotal(from, to),
   ]);
 
   const revenue = rows.reduce((sum, r) => sum + Number(r.revenue), 0);
   const cost = rows.reduce((sum, r) => sum + Number(r.cost), 0);
-  const profit = revenue - cost;
-  const margin = revenue > 0 ? Math.round((profit / revenue) * 1000) / 10 : 0;
+
+  // Gross margin is revenue less what the goods cost. NET is what the business
+  // actually kept, after rent, salaries and the rest — the number an owner
+  // means when they say "profit". Showing only the gross figure and calling it
+  // profit overstates it by whatever the branch spends to stay open.
+  const grossProfit = revenue - cost;
+  const netProfit = grossProfit - expenses;
+  const margin = revenue > 0 ? Math.round((grossProfit / revenue) * 1000) / 10 : 0;
 
   // The widest bar in the table is the biggest contributor, so every other row
   // is read against it. A length comparison answers "which products actually
@@ -83,17 +91,33 @@ export default async function ProfitReportPage({
 
       <ReportFilters branches={superAdmin ? branches : undefined} />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <StatTile label="Revenue" value={formatCurrency(revenue)} />
         <StatTile label="Cost of goods" value={formatCurrency(cost)} />
-        <StatTile label="Gross profit" value={formatCurrency(profit)} />
         <StatTile
-          label="Margin"
-          value={`${margin}%`}
-          hint="profit as a share of revenue"
-          status={margin >= 20 ? "good" : margin >= 10 ? "warning" : "serious"}
+          label="Gross profit"
+          value={formatCurrency(grossProfit)}
+          hint={`${margin}% margin`}
+        />
+        <StatTile
+          label="Operating expenses"
+          value={formatCurrency(expenses)}
+          hint={expenses === 0 ? "none recorded" : "rent, salaries, utilities"}
+        />
+        <StatTile
+          label="Net profit"
+          value={formatCurrency(netProfit)}
+          hint="what the business kept"
+          status={netProfit > 0 ? "good" : netProfit === 0 ? "warning" : "critical"}
         />
       </div>
+
+      {expenses === 0 && (
+        <p className="text-muted-foreground text-sm">
+          No operating expenses are recorded for this period, so net profit equals gross. Record
+          rent, salaries and utilities under Expenses for this figure to mean what it says.
+        </p>
+      )}
 
       {rows.length === 0 ? (
         <EmptyState
@@ -164,9 +188,11 @@ export default async function ProfitReportPage({
       )}
 
       <p className="text-muted-foreground text-xs">
-        Profit is revenue less the cost recorded on each sale line at the time it was sold, so
-        restocking a batch at a new price does not restate past months. Order-level discounts are
-        not apportioned across lines and appear in the sales report instead.
+        Gross profit is revenue less the cost recorded on each sale line at the time it was sold, so
+        restocking a batch at a new price does not restate past months. The per-medicine table below
+        shows gross figures; operating expenses are not attributable to individual medicines and are
+        subtracted once, above. Order-level discounts are not apportioned across lines and appear in
+        the sales report instead.
       </p>
     </div>
   );
