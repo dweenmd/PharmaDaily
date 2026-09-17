@@ -145,7 +145,9 @@ Then:
 npm run seed:admin
 ```
 
-There is deliberately no public sign-up and no "create first admin" page — such an endpoint in production is a backdoor. The first privileged account is minted by this script, and every later staff account is created by an administrator from inside the app.
+There is deliberately no public sign-up and no "create first admin" page — such an endpoint in production is a backdoor. The first privileged account is minted by this script; every later one is created from **Staff** inside the app.
+
+Those staff actions are the only code in the project that uses the service-role client, so RLS is switched off for them and every rule is enforced by hand: a branch manager may create cashiers, stock managers and pharmacists **at their own branch only** and may not touch an account at or above their own level; nobody may deactivate themselves; and the last active super admin cannot be demoted or deactivated, because nobody would then be able to restore one. Those rules live in `src/features/staff/authority.ts` as pure functions precisely so `npm run verify:staff` can exercise every branch of them.
 
 Clear `SEED_SUPER_ADMIN_PASSWORD` from `.env.local` once you have signed in.
 
@@ -198,8 +200,9 @@ Local development needs nothing hosted. When you are ready to deploy:
 | `npm run seed:admin` | Create or promote the super admin |
 | `npm run verify:rls` | Access-control regression test |
 | `npm run verify:tx` | Inventory transaction regression test |
+| `npm run verify:staff` | Staff-authorisation rules (no database needed) |
 
-Both suites run against the live database and exit non-zero on any failure. Current: **61 access-control checks, 70 transaction checks**.
+Both suites run against the live database and exit non-zero on any failure. Current: **61 access-control checks, 70 transaction checks, 21 staff-authorisation checks**.
 
 ---
 

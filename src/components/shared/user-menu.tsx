@@ -1,10 +1,11 @@
 "use client";
 
 import * as React from "react";
-import { LogOut, Settings, User as UserIcon } from "lucide-react";
+import { KeyRound, LogOut, User as UserIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import { signOutAction } from "@/features/auth/actions";
+import { ChangePasswordDialog } from "@/features/staff/components/change-password-dialog";
 import { ROLE_LABELS } from "@/lib/auth/roles";
 import { type UserRole } from "@/types";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -35,6 +36,7 @@ function initialsOf(name: string): string {
 
 export function UserMenu({ name, role, branchName }: Props) {
   const [isPending, startTransition] = React.useTransition();
+  const [passwordOpen, setPasswordOpen] = React.useState(false);
 
   function handleSignOut() {
     startTransition(async () => {
@@ -73,13 +75,13 @@ export function UserMenu({ name, role, branchName }: Props) {
 
         <DropdownMenuSeparator />
 
+        <DropdownMenuItem onSelect={() => setPasswordOpen(true)}>
+          <KeyRound className="size-4" />
+          Change password
+        </DropdownMenuItem>
         <DropdownMenuItem disabled>
           <UserIcon className="size-4" />
           Profile
-        </DropdownMenuItem>
-        <DropdownMenuItem disabled>
-          <Settings className="size-4" />
-          Settings
         </DropdownMenuItem>
 
         <DropdownMenuSeparator />
@@ -98,6 +100,8 @@ export function UserMenu({ name, role, branchName }: Props) {
           {isPending ? "Signing out…" : "Sign out"}
         </DropdownMenuItem>
       </DropdownMenuContent>
+
+      <ChangePasswordDialog open={passwordOpen} onOpenChange={setPasswordOpen} />
     </DropdownMenu>
   );
 }

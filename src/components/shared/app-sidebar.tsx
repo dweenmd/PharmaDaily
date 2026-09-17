@@ -167,7 +167,6 @@ const NAV_GROUPS: NavGroup[] = [
         href: "/staff",
         icon: Users,
         roles: ["super_admin", "branch_manager"],
-        comingSoon: true,
       },
       {
         title: "Settings",
