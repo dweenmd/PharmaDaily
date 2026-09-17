@@ -9,6 +9,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 
 type Props = {
@@ -32,7 +39,7 @@ export function SettingsForm({ values, branchId, branchName }: Props) {
     setSavingKey(key);
 
     startTransition(async () => {
-      const result = await saveSettingAction(key, Number(draft[key]), branchId);
+      const result = await saveSettingAction(key, draft[key] ?? "", branchId);
       setSavingKey(null);
 
       if (!result.ok) {
@@ -65,19 +72,43 @@ export function SettingsForm({ values, branchId, branchName }: Props) {
 
             <CardContent className="space-y-3">
               <div className="flex flex-wrap items-end gap-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor={key} className="text-xs">
-                    Value ({spec.unit})
-                  </Label>
-                  <Input
-                    id={key}
-                    value={draft[key] ?? ""}
-                    onChange={(e) => setDraft((d) => ({ ...d, [key]: e.target.value }))}
-                    inputMode="decimal"
-                    className="w-32 text-right tabular-nums"
-                    disabled={isPending}
-                  />
-                </div>
+                {spec.type === "select" ? (
+                  <div className="space-y-1.5">
+                    <Label htmlFor={key} className="text-xs">
+                      Value
+                    </Label>
+                    <Select
+                      value={draft[key] ?? ""}
+                      onValueChange={(v) => setDraft((d) => ({ ...d, [key]: v }))}
+                      disabled={isPending}
+                    >
+                      <SelectTrigger id={key} className="w-40">
+                        <SelectValue placeholder="Choose one" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {spec.options.map((o) => (
+                          <SelectItem key={o.value} value={o.value}>
+                            {o.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ) : (
+                  <div className="space-y-1.5">
+                    <Label htmlFor={key} className="text-xs">
+                      Value ({spec.unit})
+                    </Label>
+                    <Input
+                      id={key}
+                      value={draft[key] ?? ""}
+                      onChange={(e) => setDraft((d) => ({ ...d, [key]: e.target.value }))}
+                      inputMode="decimal"
+                      className="w-32 text-right tabular-nums"
+                      disabled={isPending}
+                    />
+                  </div>
+                )}
 
                 <Button
                   size="sm"
@@ -101,7 +132,7 @@ export function SettingsForm({ values, branchId, branchName }: Props) {
               </div>
 
               <p className="text-muted-foreground text-xs">
-                Allowed range {spec.min}–{spec.max} {spec.unit}.{" "}
+                {spec.type === "number" && `Allowed range ${spec.min}–${spec.max} ${spec.unit}. `}
                 {current?.scope === "branch"
                   ? "This branch overrides the chain default."
                   : branchId

@@ -42,7 +42,7 @@ export default async function PosPage() {
 
   const supabase = await createClient();
 
-  const [stock, { data: customers }] = await Promise.all([
+  const [stock, { data: customers }, { data: discountSettings }] = await Promise.all([
     getSellableStock(),
     supabase
       .from("customers")
@@ -51,7 +51,19 @@ export default async function PosPage() {
       .eq("is_active", true)
       .order("name")
       .limit(500),
+    supabase
+      .from("settings")
+      .select("value, branch_id")
+      .eq("key", "max_discount_percent")
+      .or(`branch_id.eq.${profile.branch_id},branch_id.is.null`),
   ]);
+
+  // The branch override wins over the chain default — same resolution order
+  // create_sale() uses server-side. This is purely a heads-up before the
+  // cashier reaches checkout; the database enforces the real limit either way.
+  const branchOverride = discountSettings?.find((s) => s.branch_id === profile.branch_id);
+  const globalDefault = discountSettings?.find((s) => s.branch_id === null);
+  const maxDiscountPercent = Number(branchOverride?.value ?? globalDefault?.value ?? 100);
 
   if (stock.length === 0) {
     return (
@@ -82,6 +94,7 @@ export default async function PosPage() {
         branchName={profile.branch.name}
         stock={stock}
         customers={(customers ?? []).map((c) => ({ ...c, due_amount: Number(c.due_amount) }))}
+        maxDiscountPercent={maxDiscountPercent}
       />
     </div>
   );

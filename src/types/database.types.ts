@@ -405,6 +405,51 @@ export type Database = {
         }
         Relationships: []
       }
+      discount_overrides: {
+        Row: {
+          approved_by: string
+          branch_id: string
+          consumed_at: string | null
+          created_at: string
+          expires_at: string
+          id: string
+          requested_discount_percent: number
+        }
+        Insert: {
+          approved_by: string
+          branch_id: string
+          consumed_at?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          requested_discount_percent: number
+        }
+        Update: {
+          approved_by?: string
+          branch_id?: string
+          consumed_at?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          requested_discount_percent?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "discount_overrides_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "discount_overrides_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       expenses: {
         Row: {
           amount: number
@@ -1581,6 +1626,10 @@ export type Database = {
         }
         Returns: number
       }
+      consume_discount_override: {
+        Args: { p_branch_id: string; p_token: string }
+        Returns: boolean
+      }
       create_purchase: {
         Args: {
           p_branch_id: string
@@ -1593,17 +1642,30 @@ export type Database = {
         }
         Returns: string
       }
-      create_sale: {
-        Args: {
-          p_branch_id: string
-          p_customer_id: string
-          p_discount: number
-          p_items: Json
-          p_payments: Json
-          p_sale_date?: string
-        }
-        Returns: string
-      }
+      create_sale:
+        | {
+            Args: {
+              p_branch_id: string
+              p_customer_id: string
+              p_discount: number
+              p_items: Json
+              p_payments: Json
+              p_sale_date?: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_branch_id: string
+              p_customer_id: string
+              p_discount: number
+              p_discount_override_token?: string
+              p_items: Json
+              p_payments: Json
+              p_sale_date?: string
+            }
+            Returns: string
+          }
       create_sales_return: {
         Args: {
           p_items: Json

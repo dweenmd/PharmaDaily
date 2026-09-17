@@ -44,9 +44,19 @@ export async function createSaleAction(input: SaleInput): Promise<ActionResult<s
       amount: p.amount,
       reference: p.reference,
     })),
+    p_discount_override_token: parsed.data.discount_override_token as string,
   });
 
   if (error) {
+    // create_sale() raises this specific message when the discount needs a
+    // manager's sign-off — distinguished from the generic 42501 below so the
+    // POS can open the approval dialog instead of a dead-end error.
+    if (error.code === "42501" && /needs a manager's approval/.test(error.message)) {
+      return { ok: false, error: error.message, field: "discount" };
+    }
+    if (error.code === "42501" && /approval has expired/.test(error.message)) {
+      return { ok: false, error: error.message, field: "discount" };
+    }
     if (error.code === "42501") {
       return { ok: false, error: "You do not have permission to complete sales." };
     }

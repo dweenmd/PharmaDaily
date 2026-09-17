@@ -130,6 +130,20 @@ async function signedInBranchManager(branchId: string, suffix: string) {
 async function cleanup(branchId?: string, medicineId?: string, supplierId?: string) {
   const admin = adminClient();
 
+  // Must run before the auth users below are deleted: discount_overrides has
+  // a RESTRICT (not cascade) foreign key to profiles.id via approved_by, so
+  // deleting a manager's auth user while a token still references their
+  // profile would fail the whole cleanup with a foreign-key violation.
+  const { data: earlyTaggedBranches } = await admin
+    .from("branches")
+    .select("id")
+    .like("name", `${TAG}%`);
+  const earlyTaggedIds = (earlyTaggedBranches ?? []).map((b) => b.id);
+  if (earlyTaggedIds.length > 0) {
+    await admin.from("discount_overrides").delete().in("branch_id", earlyTaggedIds);
+    await admin.from("settings").delete().in("branch_id", earlyTaggedIds);
+  }
+
   const { data: users } = await admin.auth.admin.listUsers({ perPage: 1000 });
   for (const user of users?.users ?? []) {
     if (user.email?.startsWith(TAG.toLowerCase())) {
@@ -674,6 +688,138 @@ async function main() {
       "cannot leave an amount owing without naming a customer",
       anonymousCredit !== null,
       anonymousCredit ? undefined : "untraceable debt was created",
+    );
+
+    // =======================================================================
+    console.log("\n  Discount approval");
+    // =======================================================================
+    await admin
+      .from("settings")
+      .insert({ key: "max_discount_percent", value: "10", branch_id: branch.id });
+
+    // A second branch purely so a token minted for it can be proven useless
+    // at the first branch's till.
+    const { data: otherBranch } = await admin
+      .from("branches")
+      .insert({ name: `${TAG} Branch D`, code: `${TAG.slice(0, 8).toUpperCase()}D` })
+      .select("id")
+      .single();
+    if (!otherBranch) throw new Error("second branch fixture failed");
+
+    const discountManager = await signedInBranchManager(branch.id, "discount");
+    const {
+      data: { user: discountManagerUser },
+    } = await discountManager.auth.getUser();
+    const { data: discountManagerProfile } = await admin
+      .from("profiles")
+      .select("id")
+      .eq("auth_id", discountManagerUser!.id)
+      .single();
+
+    const { error: smallDiscount } = await cashier.rpc("create_sale", {
+      p_branch_id: branch.id,
+      p_customer_id: null as unknown as string,
+      p_discount: 0.05 * price,
+      p_items: [{ branch_stock_id: batch.id, quantity: 1 }],
+      p_payments: [{ method: "cash", amount: price }],
+    });
+
+    check(
+      "a discount under the limit needs no approval",
+      smallDiscount === null,
+      smallDiscount?.message,
+    );
+
+    const { error: bigDiscountNoToken } = await cashier.rpc("create_sale", {
+      p_branch_id: branch.id,
+      p_customer_id: null as unknown as string,
+      p_discount: 0.5 * price,
+      p_items: [{ branch_stock_id: batch.id, quantity: 1 }],
+      p_payments: [{ method: "cash", amount: price }],
+    });
+
+    check(
+      "a discount over the limit is refused with no approval",
+      bigDiscountNoToken !== null && /manager's approval/.test(bigDiscountNoToken.message),
+      bigDiscountNoToken?.message,
+    );
+
+    const primaryBranchId = branch.id;
+
+    async function mintToken(overrides: {
+      branchId?: string;
+      expiresAt?: string;
+    } = {}) {
+      const { data } = await admin
+        .from("discount_overrides")
+        .insert({
+          branch_id: overrides.branchId ?? primaryBranchId,
+          approved_by: discountManagerProfile!.id,
+          requested_discount_percent: 50,
+          ...(overrides.expiresAt ? { expires_at: overrides.expiresAt } : {}),
+        })
+        .select("id")
+        .single();
+      return data!.id as string;
+    }
+
+    const validToken = await mintToken();
+    const { error: approvedSale } = await cashier.rpc("create_sale", {
+      p_branch_id: branch.id,
+      p_customer_id: null as unknown as string,
+      p_discount: 0.5 * price,
+      p_items: [{ branch_stock_id: batch.id, quantity: 1 }],
+      p_payments: [{ method: "cash", amount: price }],
+      p_discount_override_token: validToken,
+    });
+
+    check("a valid approval token lets the sale through", approvedSale === null, approvedSale?.message);
+
+    const { error: reusedToken } = await cashier.rpc("create_sale", {
+      p_branch_id: branch.id,
+      p_customer_id: null as unknown as string,
+      p_discount: 0.5 * price,
+      p_items: [{ branch_stock_id: batch.id, quantity: 1 }],
+      p_payments: [{ method: "cash", amount: price }],
+      p_discount_override_token: validToken,
+    });
+
+    check(
+      "the same token cannot be spent twice",
+      reusedToken !== null,
+      reusedToken ? undefined : "a consumed token was accepted again",
+    );
+
+    const wrongBranchToken = await mintToken({ branchId: otherBranch.id });
+    const { error: wrongBranchSale } = await cashier.rpc("create_sale", {
+      p_branch_id: branch.id,
+      p_customer_id: null as unknown as string,
+      p_discount: 0.5 * price,
+      p_items: [{ branch_stock_id: batch.id, quantity: 1 }],
+      p_payments: [{ method: "cash", amount: price }],
+      p_discount_override_token: wrongBranchToken,
+    });
+
+    check(
+      "a token minted for another branch does not work here",
+      wrongBranchSale !== null,
+      wrongBranchSale ? undefined : "an out-of-branch token was accepted",
+    );
+
+    const expiredToken = await mintToken({ expiresAt: new Date(Date.now() - 60_000).toISOString() });
+    const { error: expiredSale } = await cashier.rpc("create_sale", {
+      p_branch_id: branch.id,
+      p_customer_id: null as unknown as string,
+      p_discount: 0.5 * price,
+      p_items: [{ branch_stock_id: batch.id, quantity: 1 }],
+      p_payments: [{ method: "cash", amount: price }],
+      p_discount_override_token: expiredToken,
+    });
+
+    check(
+      "an expired token does not work",
+      expiredSale !== null,
+      expiredSale ? undefined : "an expired token was accepted",
     );
 
     // =======================================================================

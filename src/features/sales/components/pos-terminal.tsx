@@ -7,6 +7,7 @@ import {
   Minus,
   Plus,
   Search,
+  ShieldAlert,
   ShoppingCart,
   Trash2,
   TriangleAlert,
@@ -19,6 +20,7 @@ import { createSaleAction } from "@/features/sales/actions";
 import { type SellableBatch } from "@/features/sales/queries";
 import { highestLevel, warningsFor } from "@/features/sales/components/pos-warnings";
 import { CustomerDialog, type PosCustomer } from "@/features/sales/components/customer-dialog";
+import { DiscountApprovalDialog } from "@/features/sales/components/discount-approval-dialog";
 import { useHeldSale } from "@/features/sales/components/use-held-sale";
 import { PaymentDialog } from "@/features/sales/components/payment-dialog";
 import { useHotkeys } from "@/hooks/use-hotkeys";
@@ -46,9 +48,17 @@ type Props = {
   branchName: string;
   stock: SellableBatch[];
   customers: PosCustomer[];
+  /** Above this, completing the sale needs a manager's approval. */
+  maxDiscountPercent: number;
 };
 
-export function PosTerminal({ branchId, branchName, stock: serverStock, customers }: Props) {
+export function PosTerminal({
+  branchId,
+  branchName,
+  stock: serverStock,
+  customers,
+  maxDiscountPercent,
+}: Props) {
   const router = useRouter();
   const isOnline = useOnlineStatus();
 
@@ -81,6 +91,15 @@ export function PosTerminal({ branchId, branchName, stock: serverStock, customer
   const [paymentOpen, setPaymentOpen] = React.useState(false);
   const [customerOpen, setCustomerOpen] = React.useState(false);
   const [isPending, startTransition] = React.useTransition();
+
+  // Set once a manager has approved a discount over the branch's limit.
+  // create_sale() re-verifies it server-side regardless — this only lets the
+  // UI skip straight to completing the sale instead of asking again.
+  const [discountOverrideToken, setDiscountOverrideToken] = React.useState<string | null>(null);
+  const [approvalOpen, setApprovalOpen] = React.useState(false);
+  const [pendingPayments, setPendingPayments] = React.useState<
+    { method: string; amount: number; reference: string | null }[] | null
+  >(null);
 
   const { held, hold, clear: clearHeld } = useHeldSale();
   const hasHeldSale = held !== null;
@@ -165,6 +184,9 @@ export function PosTerminal({ branchId, branchName, stock: serverStock, customer
   const total = Math.max(0, subtotal - cappedDiscount);
   const itemCount = lines.reduce((sum, l) => sum + l.quantity, 0);
 
+  const discountPercent = subtotal > 0 ? (cappedDiscount / subtotal) * 100 : 0;
+  const needsApproval = discountPercent > maxDiscountPercent;
+
   const blockingIssues = lines.filter((l) => l.quantity > l.batch.available);
 
   function setQuantity(stockId: string, quantity: number) {
@@ -248,7 +270,10 @@ export function PosTerminal({ branchId, branchName, stock: serverStock, customer
   // Completing.
   // -------------------------------------------------------------------------
   const completeSale = React.useCallback(
-    (payments: { method: string; amount: number; reference: string | null }[]) => {
+    (
+      payments: { method: string; amount: number; reference: string | null }[],
+      overrideToken?: string,
+    ) => {
       // Offline: the sale is real, the customer is standing there, and the
       // server cannot be told yet. It goes to the local queue with an id
       // minted NOW — that id is what makes replaying it safe if the eventual
@@ -294,19 +319,31 @@ export function PosTerminal({ branchId, branchName, stock: serverStock, customer
             quantity: l.quantity,
           })),
           payments: payments as never,
+          discount_override_token: overrideToken ?? discountOverrideToken,
         });
 
         if (!result.ok) {
+          // create_sale() refuses with this specific field when the discount
+          // is over the branch's limit and no valid approval was attached —
+          // that is a "get a manager" moment, not a dead end.
+          if (result.field === "discount") {
+            setPendingPayments(payments);
+            setDiscountOverrideToken(null);
+            setApprovalOpen(true);
+            return;
+          }
           toast.error("Sale not completed", { description: result.error });
           return;
         }
 
+        setDiscountOverrideToken(null);
+        setPendingPayments(null);
         setPaymentOpen(false);
         router.push(`/sales/${result.data}?new=1`);
         router.refresh();
       });
     },
-    [branchId, cappedDiscount, customer, isOnline, lines, router, total],
+    [branchId, cappedDiscount, customer, discountOverrideToken, isOnline, lines, router, total],
   );
 
   // -------------------------------------------------------------------------
@@ -679,6 +716,14 @@ export function PosTerminal({ branchId, branchName, stock: serverStock, customer
                 />
               </div>
 
+              {needsApproval && (
+                <p className="flex items-start justify-end gap-1.5 text-right text-xs text-amber-600 dark:text-amber-500">
+                  <ShieldAlert className="mt-px size-3 shrink-0" />
+                  {Math.round(discountPercent)}% is over the {Math.round(maxDiscountPercent)}% limit
+                  — a manager will need to approve this at checkout.
+                </p>
+              )}
+
               <div className="flex justify-between border-t pt-2 text-base font-semibold">
                 <span>Total</span>
                 <span className="tabular-nums">{formatCurrency(total)}</span>
@@ -745,6 +790,18 @@ export function PosTerminal({ branchId, branchName, stock: serverStock, customer
         onSelect={(c) => {
           setCustomer(c);
           setCustomerOpen(false);
+        }}
+      />
+
+      <DiscountApprovalDialog
+        open={approvalOpen}
+        onOpenChange={setApprovalOpen}
+        branchId={branchId}
+        discountPercent={discountPercent}
+        onApproved={(token) => {
+          setDiscountOverrideToken(token);
+          setApprovalOpen(false);
+          if (pendingPayments) completeSale(pendingPayments, token);
         }}
       />
 
