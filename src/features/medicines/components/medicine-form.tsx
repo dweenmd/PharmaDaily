@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AlertCircle, ScanLine } from "lucide-react";
 import { toast } from "sonner";
@@ -38,6 +38,35 @@ type Props = {
 };
 
 const NO_CATEGORY = "__none__";
+
+/** Checkbox with a label and explanatory hint, wrapped so the whole row is clickable. */
+function CheckboxRow({
+  checked,
+  onChange,
+  disabled,
+  label,
+  hint,
+}: {
+  checked: boolean;
+  onChange: (value: boolean) => void;
+  disabled?: boolean;
+  label: string;
+  hint: string;
+}) {
+  return (
+    <label className="flex cursor-pointer items-start gap-3">
+      <Checkbox
+        checked={checked}
+        onCheckedChange={(v) => onChange(v === true)}
+        disabled={disabled}
+      />
+      <span className="space-y-0.5">
+        <span className="block text-sm font-medium">{label}</span>
+        <span className="text-muted-foreground block text-xs">{hint}</span>
+      </span>
+    </label>
+  );
+}
 
 export function MedicineForm({ categories, medicine }: Props) {
   const router = useRouter();
@@ -146,25 +175,29 @@ export function MedicineForm({ categories, medicine }: Props) {
 
           <Field>
             <FieldLabel htmlFor="category_id">Category</FieldLabel>
-            <Select
-              value={form.watch("category_id") || NO_CATEGORY}
-              onValueChange={(v) =>
-                form.setValue("category_id", v === NO_CATEGORY ? "" : v, { shouldDirty: true })
-              }
-              disabled={isPending}
-            >
-              <SelectTrigger id="category_id">
-                <SelectValue placeholder="Uncategorised" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NO_CATEGORY}>Uncategorised</SelectItem>
-                {categories.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Controller
+              control={form.control}
+              name="category_id"
+              render={({ field }) => (
+                <Select
+                  value={field.value || NO_CATEGORY}
+                  onValueChange={(v) => field.onChange(v === NO_CATEGORY ? "" : v)}
+                  disabled={isPending}
+                >
+                  <SelectTrigger id="category_id">
+                    <SelectValue placeholder="Uncategorised" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NO_CATEGORY}>Uncategorised</SelectItem>
+                    {categories.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
           </Field>
 
           <Field>
@@ -186,25 +219,29 @@ export function MedicineForm({ categories, medicine }: Props) {
         <CardContent className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           <Field>
             <FieldLabel htmlFor="dosage_form">Dosage form</FieldLabel>
-            <Select
-              value={form.watch("dosage_form") || NO_CATEGORY}
-              onValueChange={(v) =>
-                form.setValue("dosage_form", v === NO_CATEGORY ? "" : v, { shouldDirty: true })
-              }
-              disabled={isPending}
-            >
-              <SelectTrigger id="dosage_form">
-                <SelectValue placeholder="Select" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NO_CATEGORY}>Not specified</SelectItem>
-                {DOSAGE_FORMS.map((f) => (
-                  <SelectItem key={f} value={f}>
-                    {f}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Controller
+              control={form.control}
+              name="dosage_form"
+              render={({ field }) => (
+                <Select
+                  value={field.value || NO_CATEGORY}
+                  onValueChange={(v) => field.onChange(v === NO_CATEGORY ? "" : v)}
+                  disabled={isPending}
+                >
+                  <SelectTrigger id="dosage_form">
+                    <SelectValue placeholder="Select" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NO_CATEGORY}>Not specified</SelectItem>
+                    {DOSAGE_FORMS.map((f) => (
+                      <SelectItem key={f} value={f}>
+                        {f}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
           </Field>
 
           <Field>
@@ -219,25 +256,29 @@ export function MedicineForm({ categories, medicine }: Props) {
 
           <Field>
             <FieldLabel htmlFor="unit">Unit</FieldLabel>
-            <Select
-              value={form.watch("unit") || NO_CATEGORY}
-              onValueChange={(v) =>
-                form.setValue("unit", v === NO_CATEGORY ? "" : v, { shouldDirty: true })
-              }
-              disabled={isPending}
-            >
-              <SelectTrigger id="unit">
-                <SelectValue placeholder="Select" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NO_CATEGORY}>Not specified</SelectItem>
-                {UNITS.map((u) => (
-                  <SelectItem key={u} value={u}>
-                    {u}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Controller
+              control={form.control}
+              name="unit"
+              render={({ field }) => (
+                <Select
+                  value={field.value || NO_CATEGORY}
+                  onValueChange={(v) => field.onChange(v === NO_CATEGORY ? "" : v)}
+                  disabled={isPending}
+                >
+                  <SelectTrigger id="unit">
+                    <SelectValue placeholder="Select" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NO_CATEGORY}>Not specified</SelectItem>
+                    {UNITS.map((u) => (
+                      <SelectItem key={u} value={u}>
+                        {u}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
           </Field>
 
           <Field>
@@ -315,51 +356,47 @@ export function MedicineForm({ categories, medicine }: Props) {
           <CardTitle className="text-base">Dispensing rules</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <label className="flex cursor-pointer items-start gap-3">
-            <Checkbox
-              checked={form.watch("prescription_required")}
-              onCheckedChange={(v) =>
-                form.setValue("prescription_required", v === true, { shouldDirty: true })
-              }
-              disabled={isPending}
-            />
-            <span className="space-y-0.5">
-              <span className="block text-sm font-medium">Prescription required</span>
-              <span className="text-muted-foreground block text-xs">
-                The POS warns the cashier before this is sold.
-              </span>
-            </span>
-          </label>
+          <Controller
+            control={form.control}
+            name="prescription_required"
+            render={({ field }) => (
+              <CheckboxRow
+                checked={field.value === true}
+                onChange={field.onChange}
+                disabled={isPending}
+                label="Prescription required"
+                hint="The POS warns the cashier before this is sold."
+              />
+            )}
+          />
 
-          <label className="flex cursor-pointer items-start gap-3">
-            <Checkbox
-              checked={form.watch("controlled_drug")}
-              onCheckedChange={(v) =>
-                form.setValue("controlled_drug", v === true, { shouldDirty: true })
-              }
-              disabled={isPending}
-            />
-            <span className="space-y-0.5">
-              <span className="block text-sm font-medium">Controlled drug</span>
-              <span className="text-muted-foreground block text-xs">
-                Subject to pharmacist approval and stricter record keeping.
-              </span>
-            </span>
-          </label>
+          <Controller
+            control={form.control}
+            name="controlled_drug"
+            render={({ field }) => (
+              <CheckboxRow
+                checked={field.value === true}
+                onChange={field.onChange}
+                disabled={isPending}
+                label="Controlled drug"
+                hint="Subject to pharmacist approval and stricter record keeping."
+              />
+            )}
+          />
 
-          <label className="flex cursor-pointer items-start gap-3">
-            <Checkbox
-              checked={form.watch("is_active")}
-              onCheckedChange={(v) => form.setValue("is_active", v === true, { shouldDirty: true })}
-              disabled={isPending}
-            />
-            <span className="space-y-0.5">
-              <span className="block text-sm font-medium">Active</span>
-              <span className="text-muted-foreground block text-xs">
-                Inactive medicines stay in history but cannot be added to new sales.
-              </span>
-            </span>
-          </label>
+          <Controller
+            control={form.control}
+            name="is_active"
+            render={({ field }) => (
+              <CheckboxRow
+                checked={field.value !== false}
+                onChange={field.onChange}
+                disabled={isPending}
+                label="Active"
+                hint="Inactive medicines stay in history but cannot be added to new sales."
+              />
+            )}
+          />
         </CardContent>
       </Card>
 
