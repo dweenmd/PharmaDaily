@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { getAccessibleBranches } from "@/features/branches/queries";
+import { getNotifications } from "@/features/notifications/queries";
 import { getCurrentProfile } from "@/lib/auth/get-current-profile";
 import { canSwitchBranch } from "@/lib/auth/roles";
 import { AppHeader } from "@/components/shared/app-header";
@@ -23,7 +24,13 @@ export default async function ProtectedLayout({ children }: LayoutProps<"/">) {
 
   if (!profile) redirect("/login");
 
-  const branches = await getAccessibleBranches();
+  // Alerts are regenerated here rather than on a schedule: refresh_stock_alerts()
+  // is idempotent, so calling it per page load is safe and needs no extra
+  // infrastructure. A cron job can call the same function later.
+  const [branches, notifications] = await Promise.all([
+    getAccessibleBranches(),
+    getNotifications(profile.branch_id),
+  ]);
 
   return (
     <SidebarProvider>
@@ -44,6 +51,12 @@ export default async function ProtectedLayout({ children }: LayoutProps<"/">) {
           branches={branches}
           activeBranchId={profile.branch_id}
           canSwitchBranch={canSwitchBranch(profile.role)}
+          notifications={notifications.map((n) => ({
+            id: n.id,
+            type: n.type,
+            message: n.message,
+            created_at: n.created_at,
+          }))}
         />
 
         <main id="main-content" className="flex-1 p-4 sm:p-6">

@@ -1,133 +1,211 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Building2, ShieldCheck, UserRound } from "lucide-react";
+import {
+  BarChart3,
+  CalendarClock,
+  CircleDollarSign,
+  PackageX,
+  Receipt,
+  TrendingUp,
+  TriangleAlert,
+} from "lucide-react";
 
 import { getAccessibleBranches } from "@/features/branches/queries";
+import { getDashboardKpis, getSalesTrend } from "@/features/reports/queries";
 import { getCurrentProfile } from "@/lib/auth/get-current-profile";
-import { ROLE_DESCRIPTIONS, ROLE_LABELS, isSuperAdmin } from "@/lib/auth/roles";
+import { ROLE_LABELS, isSuperAdmin } from "@/lib/auth/roles";
+import { formatCurrency } from "@/lib/format";
+import { PageHeader } from "@/components/shared/page-header";
+import { StatTile } from "@/components/shared/stat-tile";
+import { TrendChart } from "@/components/shared/trend-chart";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { EmptyState } from "@/components/shared/empty-state";
 
 export const metadata: Metadata = {
   title: "Dashboard",
 };
 
-/**
- * Phase 1 placeholder dashboard.
- *
- * It exists to prove the access model end to end: the identity, role and
- * branch shown here all came through RLS, and the branch list below is
- * whatever the database was willing to hand this particular user — not a
- * filtered-in-JavaScript view of everything.
- *
- * Phase 4 replaces the body with real KPIs.
- */
-export default async function DashboardPage() {
-  const profile = await getCurrentProfile();
+function isoDaysAgo(days: number) {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  return d.toISOString().slice(0, 10);
+}
 
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const profile = await getCurrentProfile();
   if (!profile) redirect("/login");
 
-  // Deduped with the shell's own call by React's cache().
-  const visibleBranches = await getAccessibleBranches();
+  const params = await searchParams;
   const superAdmin = isSuperAdmin(profile.role);
+
+  const branches = await getAccessibleBranches();
+
+  // A super admin may narrow to one branch; everyone else is already narrowed
+  // by RLS, so passing their own branch id changes nothing — it is here only so
+  // the page reads the same either way.
+  const requestedBranch = typeof params.branch === "string" ? params.branch : null;
+  const branchFilter = superAdmin
+    ? branches.some((b) => b.id === requestedBranch)
+      ? requestedBranch
+      : null
+    : profile.branch_id;
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  const [kpis, trend] = await Promise.all([
+    getDashboardKpis(today, branchFilter),
+    getSalesTrend(isoDaysAgo(29), today, branchFilter),
+  ]);
+
+  const activeBranch = branches.find((b) => b.id === branchFilter) ?? null;
+
+  const lowStock = Number(kpis.low_stock_count);
+  const nearExpiry = Number(kpis.near_expiry_count);
+  const expired = Number(kpis.expired_count);
 
   return (
     <div className="space-y-6">
-      <div className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Welcome back, {profile.name.split(" ")[0]}
-        </h1>
-        <p className="text-muted-foreground text-sm">
-          {superAdmin
-            ? "You have access to every branch."
-            : `You are signed in at ${profile.branch?.name ?? "an unassigned branch"}.`}
-        </p>
+      <PageHeader
+        title={`Good day, ${profile.name.split(" ")[0]}`}
+        description={
+          superAdmin
+            ? activeBranch
+              ? `Viewing ${activeBranch.name}.`
+              : "Viewing every branch."
+            : `${profile.branch?.name ?? "Unassigned"} · ${ROLE_LABELS[profile.role]}`
+        }
+        action={
+          <Button asChild variant="outline">
+            <Link href="/reports/sales">
+              <BarChart3 className="size-4" />
+              Reports
+            </Link>
+          </Button>
+        }
+      />
+
+      {/* Branch selector. Only a super admin sees it — everyone else has exactly
+          one branch, and offering a choice of one is noise. */}
+      {superAdmin && branches.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <Button asChild variant={branchFilter === null ? "default" : "outline"} size="sm">
+            <Link href="/dashboard">All branches</Link>
+          </Button>
+          {branches.map((branch) => (
+            <Button
+              key={branch.id}
+              asChild
+              variant={branchFilter === branch.id ? "default" : "outline"}
+              size="sm"
+            >
+              <Link href={`/dashboard?branch=${branch.id}`}>{branch.name}</Link>
+            </Button>
+          ))}
+        </div>
+      )}
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatTile
+          label="Sales today"
+          value={formatCurrency(kpis.revenue)}
+          hint={`${kpis.sales_count} invoice${Number(kpis.sales_count) === 1 ? "" : "s"}`}
+          icon={Receipt}
+        />
+        <StatTile
+          label="Profit today"
+          value={formatCurrency(kpis.profit)}
+          hint="Revenue less cost of goods"
+          icon={TrendingUp}
+        />
+        <StatTile
+          label="Low stock"
+          value={String(lowStock)}
+          hint="medicines at or below reorder level"
+          icon={TriangleAlert}
+          status={lowStock === 0 ? "good" : lowStock > 10 ? "serious" : "warning"}
+        />
+        <StatTile
+          label="Near expiry"
+          value={String(nearExpiry)}
+          hint={expired > 0 ? `${expired} already expired` : "batches expiring soon"}
+          icon={CalendarClock}
+          status={expired > 0 ? "critical" : nearExpiry === 0 ? "good" : "warning"}
+        />
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Revenue and profit, last 30 days</CardTitle>
+          <CardDescription>
+            Profit uses the cost recorded on each sale line at the time it was sold.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <TrendChart
+            points={trend.map((p) => ({
+              day: p.day,
+              revenue: Number(p.revenue),
+              profit: Number(p.profit),
+            }))}
+          />
+        </CardContent>
+      </Card>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardHeader className="pb-3">
             <CardDescription className="flex items-center gap-1.5">
-              <UserRound className="size-3.5" />
-              Signed in as
+              <CircleDollarSign className="size-3.5" />
+              Collected today
             </CardDescription>
-            <CardTitle className="text-lg">{profile.name}</CardTitle>
+            <CardTitle className="text-xl">{formatCurrency(kpis.collected)}</CardTitle>
           </CardHeader>
         </Card>
 
         <Card>
           <CardHeader className="pb-3">
             <CardDescription className="flex items-center gap-1.5">
-              <ShieldCheck className="size-3.5" />
-              Role
+              <Receipt className="size-3.5" />
+              Left on credit today
             </CardDescription>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              {ROLE_LABELS[profile.role]}
-              <Badge variant="secondary">{profile.role}</Badge>
+            <CardTitle
+              className={`text-xl ${Number(kpis.outstanding) > 0 ? "text-[var(--viz-warning)]" : ""}`}
+            >
+              {formatCurrency(kpis.outstanding)}
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground text-xs">{ROLE_DESCRIPTIONS[profile.role]}</p>
-          </CardContent>
         </Card>
 
-        <Card>
+        <Card className="viz-root">
           <CardHeader className="pb-3">
             <CardDescription className="flex items-center gap-1.5">
-              <Building2 className="size-3.5" />
-              Branch
+              <PackageX className="size-3.5" />
+              Expired stock on shelf
             </CardDescription>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              {profile.branch?.name ?? (superAdmin ? "All branches" : "Not assigned")}
-              {profile.branch && (
-                <Badge variant="outline" className="font-mono text-[10px]">
-                  {profile.branch.code}
+            <CardTitle className="flex items-center gap-2 text-xl">
+              {expired}
+              {expired > 0 && (
+                <Badge variant="destructive" className="text-[10px]">
+                  Remove today
                 </Badge>
               )}
             </CardTitle>
           </CardHeader>
+          {expired > 0 && (
+            <CardContent>
+              <Button asChild variant="outline" size="sm">
+                <Link href="/stock">Review stock</Link>
+              </Button>
+            </CardContent>
+          )}
         </Card>
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">{superAdmin ? "All branches" : "Your branch"}</CardTitle>
-          <CardDescription>
-            This list comes straight from the database under Row Level Security — it contains
-            exactly what your account is permitted to see.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {visibleBranches.length === 0 ? (
-            <EmptyState
-              icon={Building2}
-              title="No branches yet"
-              description={
-                superAdmin
-                  ? "Create your first branch to start adding stock and staff."
-                  : "Your account is not linked to a branch yet. Ask an administrator to assign one."
-              }
-            />
-          ) : (
-            <ul className="divide-y">
-              {visibleBranches.map((branch) => (
-                <li key={branch.id} className="flex items-center justify-between gap-4 py-3">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">{branch.name}</p>
-                    {branch.address && (
-                      <p className="text-muted-foreground truncate text-xs">{branch.address}</p>
-                    )}
-                  </div>
-                  <Badge variant="outline" className="shrink-0 font-mono text-[10px]">
-                    {branch.code}
-                  </Badge>
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
     </div>
   );
 }
