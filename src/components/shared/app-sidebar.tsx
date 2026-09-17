@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   ArrowLeftRight,
+  Banknote,
+  ScrollText,
   Wallet,
   BarChart3,
   Boxes,
@@ -126,6 +128,18 @@ const NAV_GROUPS: NavGroup[] = [
     label: "Insights",
     items: [
       {
+        title: "Cash",
+        href: "/cash",
+        icon: Banknote,
+        roles: ["super_admin", "branch_manager", "cashier", "pharmacist"],
+      },
+      {
+        title: "Audit log",
+        href: "/audit",
+        icon: ScrollText,
+        roles: ["super_admin", "branch_manager"],
+      },
+      {
         title: "Expenses",
         href: "/expenses",
         icon: Wallet,
@@ -232,7 +246,7 @@ export function AppSidebar({ role }: { role: UserRole }) {
 
       <SidebarFooter>
         <p className="text-muted-foreground px-2 py-1 text-[10px] group-data-[collapsible=icon]:hidden">
-          Phase 5 · Multi-branch
+          Phase 6 · Offline &amp; audit
         </p>
       </SidebarFooter>
 

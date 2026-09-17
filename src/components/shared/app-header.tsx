@@ -2,7 +2,7 @@
 
 import { BranchSwitcher, type BranchOption } from "@/components/shared/branch-switcher";
 import { NotificationBell, type PosNotification } from "@/components/shared/notification-bell";
-import { OnlineStatusIndicator } from "@/components/shared/online-status-indicator";
+import { SyncIndicator } from "@/components/shared/sync-indicator";
 import { UserMenu } from "@/components/shared/user-menu";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
@@ -15,7 +15,6 @@ type Props = {
   activeBranchId: string | null;
   canSwitchBranch: boolean;
   notifications?: PosNotification[];
-  pendingSyncCount?: number;
 };
 
 /**
@@ -31,7 +30,6 @@ export function AppHeader({
   activeBranchId,
   canSwitchBranch,
   notifications = [],
-  pendingSyncCount = 0,
 }: Props) {
   const activeBranch = branches.find((b) => b.id === activeBranchId) ?? null;
 
@@ -47,7 +45,7 @@ export function AppHeader({
       />
 
       <div className="ml-auto flex items-center gap-1 sm:gap-2">
-        <OnlineStatusIndicator pendingSyncCount={pendingSyncCount} />
+        <SyncIndicator />
         <NotificationBell notifications={notifications} />
         <UserMenu name={name} role={role} branchName={activeBranch?.name ?? null} />
       </div>

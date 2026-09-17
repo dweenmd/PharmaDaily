@@ -22,6 +22,9 @@ import { CustomerDialog, type PosCustomer } from "@/features/sales/components/cu
 import { useHeldSale } from "@/features/sales/components/use-held-sale";
 import { PaymentDialog } from "@/features/sales/components/payment-dialog";
 import { useHotkeys } from "@/hooks/use-hotkeys";
+import { useOnlineStatus } from "@/hooks/use-online-status";
+import { notifyQueueChanged } from "@/hooks/use-offline-queue";
+import { cacheStock, enqueueSale, readCachedStock, type CachedBatch } from "@/lib/offline/db";
 import { daysUntil, formatCurrency, formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -45,8 +48,29 @@ type Props = {
   customers: PosCustomer[];
 };
 
-export function PosTerminal({ branchId, branchName, stock, customers }: Props) {
+export function PosTerminal({ branchId, branchName, stock: serverStock, customers }: Props) {
   const router = useRouter();
+  const isOnline = useOnlineStatus();
+
+  // The server list is authoritative when it is available. When it is not —
+  // the page was restored from the service worker, or the connection dropped
+  // after load — the cached snapshot is what the till sells from.
+  const [cachedStock, setCachedStock] = React.useState<CachedBatch[] | null>(null);
+  const stock = React.useMemo(
+    () => (serverStock.length > 0 ? serverStock : (cachedStock ?? [])),
+    [serverStock, cachedStock],
+  );
+
+  // Refreshed whenever the POS loads with real data, so the snapshot a cashier
+  // falls back to is never older than their last online visit.
+  React.useEffect(() => {
+    if (serverStock.length > 0) {
+      void cacheStock(serverStock);
+    } else {
+      void readCachedStock().then(setCachedStock);
+    }
+  }, [serverStock]);
+
   const searchRef = React.useRef<HTMLInputElement | null>(null);
   const discountRef = React.useRef<HTMLInputElement | null>(null);
 
@@ -225,6 +249,41 @@ export function PosTerminal({ branchId, branchName, stock, customers }: Props) {
   // -------------------------------------------------------------------------
   const completeSale = React.useCallback(
     (payments: { method: string; amount: number; reference: string | null }[]) => {
+      // Offline: the sale is real, the customer is standing there, and the
+      // server cannot be told yet. It goes to the local queue with an id
+      // minted NOW — that id is what makes replaying it safe if the eventual
+      // sync response is lost.
+      if (!isOnline) {
+        const queuedId = crypto.randomUUID();
+
+        void enqueueSale({
+          id: queuedId,
+          branch_id: branchId,
+          occurred_at: new Date().toISOString(),
+          status: "pending",
+          attempts: 0,
+          summary: { itemCount: lines.length, total },
+          payload: {
+            customer_id: customer?.id ?? null,
+            discount: cappedDiscount,
+            items: lines.map((l) => ({
+              branch_stock_id: l.batch.branch_stock_id,
+              quantity: l.quantity,
+            })),
+            payments,
+          },
+        }).then(() => {
+          notifyQueueChanged();
+          setPaymentOpen(false);
+          resetSale();
+          toast.success("Sale recorded offline", {
+            description: "It will sync automatically when the connection returns.",
+          });
+        });
+
+        return;
+      }
+
       startTransition(async () => {
         const result = await createSaleAction({
           branch_id: branchId,
@@ -247,7 +306,7 @@ export function PosTerminal({ branchId, branchName, stock, customers }: Props) {
         router.refresh();
       });
     },
-    [branchId, cappedDiscount, customer, lines, router],
+    [branchId, cappedDiscount, customer, isOnline, lines, router, total],
   );
 
   // -------------------------------------------------------------------------
