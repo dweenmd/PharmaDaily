@@ -155,7 +155,10 @@ export function StaffTable({
               <TableHeader>
                 <TableRow>
                   <TableHead>Name</TableHead>
-                  <TableHead className="hidden sm:table-cell">Email</TableHead>
+                  {/* Not hidden at any width — the one thing that tells two
+                      same-named accounts apart is worth a horizontal scroll
+                      on a narrow screen rather than disappearing. */}
+                  <TableHead>Email</TableHead>
                   <TableHead>Role</TableHead>
                   {isSuperAdmin && <TableHead className="hidden md:table-cell">Branch</TableHead>}
                   <TableHead className="hidden lg:table-cell">Since</TableHead>
@@ -181,7 +184,7 @@ export function StaffTable({
                         )}
                       </TableCell>
 
-                      <TableCell className="text-muted-foreground hidden max-w-48 truncate text-sm sm:table-cell">
+                      <TableCell className="text-muted-foreground max-w-48 truncate text-sm">
                         {meta?.email ?? "—"}
                       </TableCell>
 
