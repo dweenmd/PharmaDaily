@@ -138,6 +138,13 @@ export async function updateCustomerAction(
 
   if (error) {
     if (error.code === "23505") {
+      if (error.message.includes("customers_email_unique_live")) {
+        return {
+          ok: false,
+          error: "Another customer already uses this email.",
+          field: "email",
+        };
+      }
       return {
         ok: false,
         error: "Another customer already uses this phone number.",

@@ -20,7 +20,7 @@ export const getCustomers = cache(
 
     if (opts.search) {
       const term = opts.search.replace(/[,()]/g, " ").trim();
-      if (term) query = query.or(`name.ilike.%${term}%,phone.ilike.%${term}%`);
+      if (term) query = query.or(`name.ilike.%${term}%,phone.ilike.%${term}%,email.ilike.%${term}%`);
     }
 
     const { data, error } = await query.limit(500);

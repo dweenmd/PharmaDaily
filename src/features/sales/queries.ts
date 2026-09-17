@@ -114,7 +114,7 @@ export type SaleListRow = {
   paid_amount: number;
   due_amount: number;
   branch_id: string;
-  customer: { id: string; name: string; phone: string | null } | null;
+  customer: { id: string; name: string; phone: string | null; email: string | null } | null;
   cashier: { id: string; name: string } | null;
   branch: { id: string; name: string; code: string } | null;
 };
@@ -128,7 +128,7 @@ export const getSales = cache(async (limit = 200): Promise<SaleListRow[]> => {
       `
         id, invoice_no, sale_date, created_at, subtotal, discount,
         total_amount, paid_amount, due_amount, branch_id,
-        customer:customers ( id, name, phone ),
+        customer:customers ( id, name, phone, email ),
         cashier:profiles ( id, name ),
         branch:branches ( id, name, code )
       `,
@@ -157,7 +157,7 @@ export const getSaleById = cache(async (id: string) => {
       `
         id, invoice_no, sale_date, created_at, subtotal, discount,
         total_amount, paid_amount, due_amount, branch_id,
-        customer:customers ( id, name, phone, address ),
+        customer:customers ( id, name, phone, email, address ),
         cashier:profiles ( id, name ),
         branch:branches ( id, name, code, address, phone ),
         items:sale_items (
@@ -198,6 +198,7 @@ export const getSaleById = cache(async (id: string) => {
       id: string;
       name: string;
       phone: string | null;
+      email: string | null;
       address: string | null;
     } | null,
     cashier: unwrap(data.cashier as never) as { id: string; name: string } | null,

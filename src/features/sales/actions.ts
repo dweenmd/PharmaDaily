@@ -103,7 +103,9 @@ export async function createSalesReturnAction(
  */
 export async function createCustomerAction(
   input: CustomerInput,
-): Promise<ActionResult<{ id: string; name: string; phone: string | null; due_amount: number }>> {
+): Promise<
+  ActionResult<{ id: string; name: string; phone: string | null; email: string | null; due_amount: number }>
+> {
   const parsed = customerSchema.safeParse(input);
   if (!parsed.success) {
     const issue = parsed.error.issues[0];
@@ -115,11 +117,18 @@ export async function createCustomerAction(
   const { data, error } = await supabase
     .from("customers")
     .insert(parsed.data)
-    .select("id, name, phone, due_amount")
+    .select("id, name, phone, email, due_amount")
     .single();
 
   if (error) {
     if (error.code === "23505") {
+      if (error.message.includes("customers_email_unique_live")) {
+        return {
+          ok: false,
+          error: "A customer with this email already exists.",
+          field: "email",
+        };
+      }
       return {
         ok: false,
         error: "A customer with this phone number already exists.",

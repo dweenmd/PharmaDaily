@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       audit_logs: {
@@ -397,6 +372,7 @@ export type Database = {
           created_at: string
           deleted_at: string | null
           due_amount: number
+          email: string | null
           id: string
           is_active: boolean
           name: string
@@ -408,6 +384,7 @@ export type Database = {
           created_at?: string
           deleted_at?: string | null
           due_amount?: number
+          email?: string | null
           id?: string
           is_active?: boolean
           name: string
@@ -419,6 +396,7 @@ export type Database = {
           created_at?: string
           deleted_at?: string | null
           due_amount?: number
+          email?: string | null
           id?: string
           is_active?: boolean
           name?: string
@@ -764,6 +742,7 @@ export type Database = {
           id: string
           is_active: boolean
           name: string
+          password_set: boolean
           role: Database["public"]["Enums"]["user_role"]
           updated_at: string
         }
@@ -775,6 +754,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           name: string
+          password_set?: boolean
           role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string
         }
@@ -786,6 +766,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           name?: string
+          password_set?: boolean
           role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string
         }
@@ -1690,6 +1671,10 @@ export type Database = {
           units_sold: number
         }[]
       }
+      purge_old_audit_logs: {
+        Args: { p_retention_days?: number }
+        Returns: number
+      }
       receive_stock_transfer: {
         Args: { p_receipts?: Json; p_transfer_id: string }
         Returns: undefined
@@ -1949,9 +1934,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       cash_movement_type: ["pay_out", "pay_in", "bank_deposit"],

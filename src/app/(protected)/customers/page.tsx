@@ -80,6 +80,7 @@ export default async function CustomersPage({
                 <TableRow>
                   <TableHead>Customer</TableHead>
                   <TableHead className="hidden sm:table-cell">Phone</TableHead>
+                  <TableHead className="hidden md:table-cell">Email</TableHead>
                   <TableHead className="hidden lg:table-cell">Address</TableHead>
                   <TableHead className="text-right">Owes</TableHead>
                   <TableHead>Status</TableHead>
@@ -95,6 +96,9 @@ export default async function CustomersPage({
                       <TableCell className="font-medium">{c.name}</TableCell>
                       <TableCell className="text-muted-foreground hidden text-sm sm:table-cell">
                         {c.phone ?? "—"}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground hidden max-w-48 truncate text-sm md:table-cell">
+                        {c.email ?? "—"}
                       </TableCell>
                       <TableCell className="text-muted-foreground hidden max-w-xs truncate text-sm lg:table-cell">
                         {c.address ?? "—"}

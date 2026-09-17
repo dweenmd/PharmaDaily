@@ -95,6 +95,16 @@ export const customerSchema = z.object({
     .regex(/^[0-9+\-\s()]*$/, "Phone may contain only digits and + - ( ) characters")
     .optional()
     .transform((v) => (v === "" || v === undefined ? null : v)),
+  // Whichever of phone/email a customer gives is what finds them next visit —
+  // neither is required on its own, but at least one is worth having.
+  email: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .max(200)
+    .optional()
+    .refine((v) => !v || /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v), "Enter a valid email address")
+    .transform((v) => (v === "" || v === undefined ? null : v)),
   address: z
     .string()
     .trim()

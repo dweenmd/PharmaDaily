@@ -91,8 +91,10 @@ export default async function SaleDetailPage({
             <div>
               <p className="text-muted-foreground text-xs">Customer</p>
               <p className="font-medium">{sale.customer?.name ?? "Walk-in customer"}</p>
-              {sale.customer?.phone && (
-                <p className="text-muted-foreground text-xs">{sale.customer.phone}</p>
+              {(sale.customer?.phone || sale.customer?.email) && (
+                <p className="text-muted-foreground text-xs">
+                  {[sale.customer?.phone, sale.customer?.email].filter(Boolean).join(" · ")}
+                </p>
               )}
             </div>
             <div className="sm:text-right">

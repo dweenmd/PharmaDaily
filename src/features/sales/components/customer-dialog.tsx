@@ -24,6 +24,7 @@ export type PosCustomer = {
   id: string;
   name: string;
   phone: string | null;
+  email: string | null;
   due_amount: number;
 };
 
@@ -40,6 +41,7 @@ export function CustomerDialog({ open, onOpenChange, customers, selected, onSele
   const [adding, setAdding] = React.useState(false);
   const [name, setName] = React.useState("");
   const [phone, setPhone] = React.useState("");
+  const [email, setEmail] = React.useState("");
   const [isPending, startTransition] = React.useTransition();
 
   // Newly registered customers are held locally so they are selectable
@@ -58,6 +60,7 @@ export function CustomerDialog({ open, onOpenChange, customers, selected, onSele
       setAdding(false);
       setName("");
       setPhone("");
+      setEmail("");
     }
   }
 
@@ -68,7 +71,10 @@ export function CustomerDialog({ open, onOpenChange, customers, selected, onSele
     if (!term) return all.slice(0, 50);
     return all
       .filter(
-        (c) => c.name.toLowerCase().includes(term) || (c.phone ?? "").toLowerCase().includes(term),
+        (c) =>
+          c.name.toLowerCase().includes(term) ||
+          (c.phone ?? "").toLowerCase().includes(term) ||
+          (c.email ?? "").toLowerCase().includes(term),
       )
       .slice(0, 50);
   }, [all, query]);
@@ -80,7 +86,7 @@ export function CustomerDialog({ open, onOpenChange, customers, selected, onSele
     }
 
     startTransition(async () => {
-      const result = await createCustomerAction({ name, phone, address: null });
+      const result = await createCustomerAction({ name, phone, email, address: null });
 
       if (!result.ok) {
         toast.error(result.error);
@@ -135,6 +141,22 @@ export function CustomerDialog({ open, onOpenChange, customers, selected, onSele
               </p>
             </div>
 
+            <div className="space-y-2">
+              <Label htmlFor="customer-email">Email</Label>
+              <Input
+                id="customer-email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="rahim@example.com"
+                type="email"
+                inputMode="email"
+                disabled={isPending}
+              />
+              <p className="text-muted-foreground text-xs">
+                Also finds them next time. Phone or email is enough — neither is required.
+              </p>
+            </div>
+
             <div className="flex gap-2">
               <Button onClick={submitNewCustomer} disabled={isPending}>
                 {isPending && <Spinner />}
@@ -152,7 +174,7 @@ export function CustomerDialog({ open, onOpenChange, customers, selected, onSele
               <Input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search by name or phone…"
+                placeholder="Search by name, phone or email…"
                 className="pl-9"
                 autoFocus
               />
@@ -195,9 +217,9 @@ export function CustomerDialog({ open, onOpenChange, customers, selected, onSele
                       />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate font-medium">{customer.name}</span>
-                        {customer.phone && (
-                          <span className="text-muted-foreground block text-xs">
-                            {customer.phone}
+                        {(customer.phone || customer.email) && (
+                          <span className="text-muted-foreground block truncate text-xs">
+                            {[customer.phone, customer.email].filter(Boolean).join(" · ")}
                           </span>
                         )}
                       </span>

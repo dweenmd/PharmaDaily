@@ -50,7 +50,8 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
       <PageHeader
         title={customer.name}
         description={
-          [customer.phone, customer.address].filter(Boolean).join(" · ") || "No contact details"
+          [customer.phone, customer.email, customer.address].filter(Boolean).join(" · ") ||
+          "No contact details"
         }
         action={
           canCollect ? (

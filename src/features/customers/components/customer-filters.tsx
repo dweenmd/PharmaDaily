@@ -44,7 +44,7 @@ export function CustomerFilters() {
         <Input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search by name or phone…"
+          placeholder="Search by name, phone or email…"
           className="pl-9"
           aria-label="Search customers"
         />

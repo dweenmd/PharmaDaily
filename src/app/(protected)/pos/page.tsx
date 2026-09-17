@@ -46,7 +46,7 @@ export default async function PosPage() {
     getSellableStock(),
     supabase
       .from("customers")
-      .select("id, name, phone, due_amount")
+      .select("id, name, phone, email, due_amount")
       .is("deleted_at", null)
       .eq("is_active", true)
       .order("name")
