@@ -107,6 +107,20 @@ async function cleanup() {
       await admin.from("sales").delete().in("id", saleIds);
     }
 
+    const { data: testTransfers } = await admin
+      .from("stock_transfers")
+      .select("id")
+      .or(
+        branchIds.map((id) => `from_branch_id.eq.${id}`).join(",") +
+          "," +
+          branchIds.map((id) => `to_branch_id.eq.${id}`).join(","),
+      );
+    const transferIds = (testTransfers ?? []).map((t) => t.id);
+    if (transferIds.length > 0) {
+      await admin.from("stock_transfer_items").delete().in("transfer_id", transferIds);
+      await admin.from("stock_transfers").delete().in("id", transferIds);
+    }
+
     await admin.from("customer_payments").delete().in("branch_id", branchIds);
     await admin.from("supplier_payments").delete().in("branch_id", branchIds);
     await admin.from("invoice_counters").delete().in("branch_id", branchIds);
@@ -166,6 +180,10 @@ async function main() {
   console.log("\n  Branch manager A (scoped to branch A)");
   // =========================================================================
   const a = await signIn(managerAEmail);
+
+  // Branch B's manager: a transfer is the one row both ends may read, so
+  // both ends have to be exercised.
+  const b = await signIn(managerBEmail);
 
   const { data: aBranches } = await a.from("branches").select("id, code");
   check(
@@ -942,6 +960,66 @@ async function main() {
     cashierPaysSupplier !== null,
     cashierPaysSupplier ? undefined : "the payment went through",
   );
+
+  // --- Transfers are the one row two branches may both see ------------------
+  //
+  // Everywhere else, a row belongs to exactly one branch. A transfer is about
+  // two of them, so both ends can read it — and a third branch still cannot.
+  const { data: transferAB } = await admin
+    .from("stock_transfers")
+    .insert({
+      from_branch_id: branchA.id,
+      to_branch_id: branchB.id,
+      reference_no: `RLS-TRF-${Date.now().toString().slice(-6)}`,
+      transferred_by: null,
+    })
+    .select("id")
+    .single();
+
+  if (transferAB) {
+    const { data: aSees } = await a.from("stock_transfers").select("id").eq("id", transferAB.id);
+
+    check(
+      "the sending branch sees its own outgoing transfer",
+      (aSees?.length ?? 0) === 1,
+      `got ${aSees?.length ?? 0} rows`,
+    );
+
+    const { data: bSees } = await b.from("stock_transfers").select("id").eq("id", transferAB.id);
+
+    check(
+      "the receiving branch sees the transfer coming to it",
+      (bSees?.length ?? 0) === 1,
+      `got ${bSees?.length ?? 0} rows`,
+    );
+
+    // A cashier at branch A is still at branch A, so they see it — the scope
+    // is the branch, not the role. What they cannot do is act on it.
+    const { error: cashierApproves } = await cashier.rpc("approve_stock_transfer", {
+      p_transfer_id: transferAB.id,
+    });
+
+    check(
+      "a cashier cannot dispatch stock to another branch",
+      cashierApproves !== null,
+      cashierApproves ? undefined : "the transfer was approved",
+    );
+
+    const { error: uninvolvedRequest } = await b.rpc("create_stock_transfer", {
+      p_from_branch_id: branchA.id,
+      p_to_branch_id: branchB.id,
+      p_items: [
+        { source_stock_id: stockRows.find((s) => s.branch_id === branchA.id)!.id, quantity: 1 },
+      ],
+      p_notes: null as unknown as string,
+    });
+
+    check(
+      "a branch cannot help itself to another branch's stock by requesting a transfer",
+      uninvolvedRequest !== null,
+      uninvolvedRequest ? undefined : "branch B pulled stock out of branch A",
+    );
+  }
 
   // --- Settings are a manager's call ----------------------------------------
   const { error: cashierSetting } = await cashier.from("settings").insert({

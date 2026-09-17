@@ -98,6 +98,35 @@ async function signedInCashier(branchId: string) {
   return client;
 }
 
+/** Creates a branch manager at the given branch and returns a signed-in client. */
+async function signedInBranchManager(branchId: string, suffix: string) {
+  const admin = adminClient();
+  const email = `${TAG.toLowerCase()}-manager-${suffix}@example.com`;
+
+  const { data, error } = await admin.auth.admin.createUser({
+    email,
+    password: PASSWORD,
+    email_confirm: true,
+    user_metadata: { name: `${TAG} Manager ${suffix.toUpperCase()}` },
+  });
+
+  if (error || !data.user) throw new Error(`createUser: ${error?.message}`);
+
+  await admin
+    .from("profiles")
+    .update({ role: "branch_manager", branch_id: branchId, is_active: true })
+    .eq("auth_id", data.user.id);
+
+  const client = anonClient();
+  const { error: signInError } = await client.auth.signInWithPassword({
+    email,
+    password: PASSWORD,
+  });
+  if (signInError) throw new Error(`signIn: ${signInError.message}`);
+
+  return client;
+}
+
 async function cleanup(branchId?: string, medicineId?: string, supplierId?: string) {
   const admin = adminClient();
 
@@ -145,9 +174,38 @@ async function cleanup(branchId?: string, medicineId?: string, supplierId?: stri
     await admin.from("branch_stocks").delete().eq("branch_id", branchId);
   }
 
+  // The transfer fixtures span two branches, so they are cleared by tag
+  // rather than by the single branch id the caller passed.
+  const { data: taggedBranches } = await admin
+    .from("branches")
+    .select("id")
+    .like("name", `${TAG}%`);
+  const taggedIds = (taggedBranches ?? []).map((b) => b.id);
+
+  if (taggedIds.length > 0) {
+    const { data: transfers } = await admin
+      .from("stock_transfers")
+      .select("id")
+      .or(
+        taggedIds.map((id) => `from_branch_id.eq.${id}`).join(",") +
+          "," +
+          taggedIds.map((id) => `to_branch_id.eq.${id}`).join(","),
+      );
+
+    const transferIds = (transfers ?? []).map((t) => t.id);
+    if (transferIds.length > 0) {
+      await admin.from("stock_transfer_items").delete().in("transfer_id", transferIds);
+      await admin.from("stock_transfers").delete().in("id", transferIds);
+    }
+
+    await admin.from("stock_movements").delete().in("branch_id", taggedIds);
+    await admin.from("branch_stocks").delete().in("branch_id", taggedIds);
+  }
+
   if (medicineId) await admin.from("medicines").delete().eq("id", medicineId);
   if (supplierId) await admin.from("suppliers").delete().eq("id", supplierId);
   if (branchId) await admin.from("branches").delete().eq("id", branchId);
+  await admin.from("branches").delete().like("name", `${TAG}%`);
 }
 
 async function main() {
@@ -722,6 +780,265 @@ async function main() {
       "a return requires a reason",
       noReason !== null,
       noReason ? undefined : "an unexplained refund was accepted",
+    );
+
+    // =======================================================================
+    console.log("\n  Transfers");
+    // =======================================================================
+
+    // A second branch to move stock to, and a manager who can approve.
+    const { data: branchB } = await admin
+      .from("branches")
+      .insert({ name: `${TAG} Branch B`, code: `${TAG.slice(0, 8).toUpperCase()}B` })
+      .select("id")
+      .single();
+
+    if (!branchB) throw new Error("second branch fixture failed");
+
+    const manager = await signedInBranchManager(branch.id, "a");
+    const destinationManager = await signedInBranchManager(branchB.id, "b");
+
+    const { data: transferBatch } = await admin
+      .from("branch_stocks")
+      .select("id, quantity")
+      .eq("branch_id", branch.id)
+      .eq("batch_no", "B2")
+      .single();
+
+    if (!transferBatch) throw new Error("transfer batch fixture missing");
+
+    const sourceBefore = transferBatch.quantity;
+
+    // --- Requesting moves nothing -----------------------------------------
+    const { data: transferId, error: requestError } = await user.rpc("create_stock_transfer", {
+      p_from_branch_id: branch.id,
+      p_to_branch_id: branchB.id,
+      p_items: [{ source_stock_id: transferBatch.id, quantity: 10 }],
+      p_notes: "verify-tx lifecycle",
+    });
+
+    const { data: afterRequest } = await admin
+      .from("branch_stocks")
+      .select("quantity")
+      .eq("id", transferBatch.id)
+      .single();
+
+    check("a transfer can be requested", requestError === null, requestError?.message);
+    check(
+      "requesting moves no stock",
+      afterRequest?.quantity === sourceBefore,
+      `${sourceBefore} -> ${afterRequest?.quantity}`,
+    );
+
+    // --- Only the right people, in the right order ------------------------
+    const { error: stockManagerApproves } = await user.rpc("approve_stock_transfer", {
+      p_transfer_id: transferId!,
+    });
+
+    check(
+      "a stock manager cannot approve their own request",
+      stockManagerApproves !== null,
+      stockManagerApproves ? undefined : "one person moved stock between branches unobserved",
+    );
+
+    const { error: destinationApproves } = await destinationManager.rpc("approve_stock_transfer", {
+      p_transfer_id: transferId!,
+    });
+
+    check(
+      "the receiving branch cannot approve a dispatch",
+      destinationApproves !== null,
+      destinationApproves ? undefined : "the destination dispatched someone else's stock",
+    );
+
+    const { error: receiveBeforeApprove } = await destinationManager.rpc("receive_stock_transfer", {
+      p_transfer_id: transferId!,
+      p_receipts: [],
+    });
+
+    check(
+      "cannot receive a transfer that was never dispatched",
+      receiveBeforeApprove !== null,
+      receiveBeforeApprove ? undefined : "stock arrived without leaving",
+    );
+
+    // --- Approve: stock leaves --------------------------------------------
+    const { error: approveError } = await manager.rpc("approve_stock_transfer", {
+      p_transfer_id: transferId!,
+    });
+
+    const { data: afterApprove } = await admin
+      .from("branch_stocks")
+      .select("quantity")
+      .eq("id", transferBatch.id)
+      .single();
+
+    const { data: destinationDuringTransit } = await admin
+      .from("branch_stocks")
+      .select("quantity")
+      .eq("branch_id", branchB.id)
+      .eq("batch_no", "B2")
+      .maybeSingle();
+
+    check("the sending branch manager can approve", approveError === null, approveError?.message);
+    check(
+      "approval deducts at the source",
+      afterApprove?.quantity === sourceBefore - 10,
+      `${sourceBefore} -> ${afterApprove?.quantity}`,
+    );
+
+    // The whole reason this is two steps: in transit, the stock belongs to
+    // neither branch's sellable count.
+    check(
+      "in transit, the destination has not been credited",
+      destinationDuringTransit === null || destinationDuringTransit.quantity === 0,
+      `destination holds ${destinationDuringTransit?.quantity}`,
+    );
+
+    const { error: approveTwice } = await manager.rpc("approve_stock_transfer", {
+      p_transfer_id: transferId!,
+    });
+
+    check(
+      "cannot dispatch the same transfer twice",
+      approveTwice !== null,
+      approveTwice ? undefined : "stock was deducted a second time",
+    );
+
+    const { error: rejectAfterDispatch } = await manager.rpc("reject_stock_transfer", {
+      p_transfer_id: transferId!,
+      p_reason: "changed my mind",
+    });
+
+    check(
+      "cannot reject a transfer whose stock has already left",
+      rejectAfterDispatch !== null,
+      rejectAfterDispatch ? undefined : "a status change silently un-dispatched real stock",
+    );
+
+    const { error: sourceReceives } = await manager.rpc("receive_stock_transfer", {
+      p_transfer_id: transferId!,
+      p_receipts: [],
+    });
+
+    check(
+      "the sending branch cannot confirm its own delivery arrived",
+      sourceReceives !== null,
+      sourceReceives ? undefined : "counting it in was skipped",
+    );
+
+    // --- Receive short, with a reason -------------------------------------
+    const { data: transferItem } = await admin
+      .from("stock_transfer_items")
+      .select("id")
+      .eq("transfer_id", transferId!)
+      .single();
+
+    const { error: shortNoReason } = await destinationManager.rpc("receive_stock_transfer", {
+      p_transfer_id: transferId!,
+      p_receipts: [{ item_id: transferItem!.id, received_quantity: 8 }],
+    });
+
+    check(
+      "a shortfall must be explained",
+      shortNoReason !== null,
+      shortNoReason ? undefined : "stock vanished between branches with no record of why",
+    );
+
+    const { error: receiveError } = await destinationManager.rpc("receive_stock_transfer", {
+      p_transfer_id: transferId!,
+      p_receipts: [
+        { item_id: transferItem!.id, received_quantity: 8, shortfall_reason: "Damaged in transit" },
+      ],
+    });
+
+    const { data: destinationAfter } = await admin
+      .from("branch_stocks")
+      .select("quantity, expiry_date, selling_price")
+      .eq("branch_id", branchB.id)
+      .eq("batch_no", "B2")
+      .single();
+
+    const { data: sourceBatchMeta } = await admin
+      .from("branch_stocks")
+      .select("expiry_date, selling_price")
+      .eq("id", transferBatch.id)
+      .single();
+
+    check("the destination can confirm receipt", receiveError === null, receiveError?.message);
+    check(
+      "only what actually arrived is credited",
+      destinationAfter?.quantity === 8,
+      `destination holds ${destinationAfter?.quantity}, expected 8`,
+    );
+    check(
+      "the destination inherits the batch's expiry and price",
+      destinationAfter?.expiry_date === sourceBatchMeta?.expiry_date &&
+        Number(destinationAfter?.selling_price) === Number(sourceBatchMeta?.selling_price),
+      `${destinationAfter?.expiry_date} / ${destinationAfter?.selling_price}`,
+    );
+
+    const { data: transferMovements } = await admin
+      .from("stock_movements")
+      .select("branch_id, type, quantity")
+      .eq("reference_id", transferId!);
+
+    const out = (transferMovements ?? []).find((m) => m.type === "transfer_out");
+    const into = (transferMovements ?? []).find((m) => m.type === "transfer_in");
+
+    check(
+      "the ledger records 10 leaving and 8 arriving",
+      out?.quantity === -10 && into?.quantity === 8,
+      JSON.stringify(transferMovements),
+    );
+
+    // The 2 units that left and never arrived are visible as the gap between
+    // the two ledger entries — which is the point of recording both.
+    check(
+      "the two missing units are visible in the ledger, not absorbed",
+      Math.abs(out?.quantity ?? 0) - (into?.quantity ?? 0) === 2,
+      `out ${out?.quantity}, in ${into?.quantity}`,
+    );
+
+    // --- A rejected transfer changes nothing ------------------------------
+    const { data: rejectBatch } = await admin
+      .from("branch_stocks")
+      .select("id, quantity")
+      .eq("id", transferBatch.id)
+      .single();
+
+    const { data: rejectedId } = await user.rpc("create_stock_transfer", {
+      p_from_branch_id: branch.id,
+      p_to_branch_id: branchB.id,
+      p_items: [{ source_stock_id: transferBatch.id, quantity: 5 }],
+      p_notes: null as unknown as string,
+    });
+
+    await manager.rpc("reject_stock_transfer", {
+      p_transfer_id: rejectedId!,
+      p_reason: "Needed here",
+    });
+
+    const { data: afterReject } = await admin
+      .from("branch_stocks")
+      .select("quantity")
+      .eq("id", transferBatch.id)
+      .single();
+
+    const { count: rejectedMovements } = await admin
+      .from("stock_movements")
+      .select("id", { count: "exact", head: true })
+      .eq("reference_id", rejectedId!);
+
+    check(
+      "a rejected transfer leaves the shelves untouched",
+      afterReject?.quantity === rejectBatch?.quantity,
+      `${rejectBatch?.quantity} -> ${afterReject?.quantity}`,
+    );
+    check(
+      "a rejected transfer writes nothing to the ledger",
+      rejectedMovements === 0,
+      `${rejectedMovements} movements`,
     );
   } finally {
     console.log("\n  Cleaning up…");

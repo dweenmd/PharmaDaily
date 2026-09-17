@@ -1064,34 +1064,49 @@ export type Database = {
         Row: {
           batch_no: string
           created_at: string
+          expiry_date: string | null
           id: string
           medicine_id: string
+          mrp: number | null
+          purchase_price: number | null
           quantity: number
           received_quantity: number | null
+          selling_price: number | null
           shortfall_reason: string | null
           source_stock_id: string
+          supplier_id: string | null
           transfer_id: string
         }
         Insert: {
           batch_no: string
           created_at?: string
+          expiry_date?: string | null
           id?: string
           medicine_id: string
+          mrp?: number | null
+          purchase_price?: number | null
           quantity: number
           received_quantity?: number | null
+          selling_price?: number | null
           shortfall_reason?: string | null
           source_stock_id: string
+          supplier_id?: string | null
           transfer_id: string
         }
         Update: {
           batch_no?: string
           created_at?: string
+          expiry_date?: string | null
           id?: string
           medicine_id?: string
+          mrp?: number | null
+          purchase_price?: number | null
           quantity?: number
           received_quantity?: number | null
+          selling_price?: number | null
           shortfall_reason?: string | null
           source_stock_id?: string
+          supplier_id?: string | null
           transfer_id?: string
         }
         Relationships: [
@@ -1107,6 +1122,13 @@ export type Database = {
             columns: ["source_stock_id"]
             isOneToOne: false
             referencedRelation: "branch_stocks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_transfer_items_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
             referencedColumns: ["id"]
           },
           {

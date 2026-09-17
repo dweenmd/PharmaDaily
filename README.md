@@ -51,6 +51,21 @@ Invoice numbers (`BRANCHCODE-YYYY-XXXX`) come from a counter table incremented w
 
 `payments`, `sale_items` and the return tables are append-only — no `UPDATE` or `DELETE` grant to anyone. A tender that can be edited after the fact is a way to make cash disappear from the till. Returns cap each line at what was sold minus what has already come back, and settle against outstanding credit before any cash goes out.
 
+## Stock transfers
+
+Moving stock between branches is two steps, not one:
+
+| Step | What happens |
+| --- | --- |
+| **Approve** | Deducted at the source, `transfer_out` written. The stock has *left*. |
+| **Receive** | Added at the destination, `transfer_in` written. It has *arrived*. |
+
+Between them it is in transit: absent from both branches' counts, accounted for only by the transfer record. Neither branch can sell it, and a shortfall — ten dispatched, nine received — becomes a real event someone has to explain rather than inventory quietly lost between two sets of books. `approved` **is** the in-transit state; there is no separate status, because it would have no separate meaning.
+
+Who may act follows from whose stock it is. The sending branch approves, the destination receives, and approval is a manager's call so requesting and approving are never one person acting alone. Availability is re-checked at approval, because a request can sit pending while the counter sells the same batch.
+
+Each transfer line carries its own copy of the batch's expiry and pricing. Not for convenience: `receive_stock_transfer()` runs `SECURITY INVOKER`, and RLS scopes `branch_stocks` to the caller's branch — so the receiver genuinely cannot read the sender's stock, and reading it there failed outright. A delivery note lists what is in the box; the receiver should not have to look in the sender's stockroom. It also freezes what was sent, so a later reprice does not retroactively change what arrived.
+
 `public.can_sell()` decides who may take payment or issue a refund: super admin, branch manager, cashier and pharmacist. Stock managers are deliberately excluded — their job is receiving deliveries, not handling money.
 
 ### Balances are derived, never written
@@ -174,7 +189,7 @@ Local development needs nothing hosted. When you are ready to deploy:
 | `npm run verify:rls` | Access-control regression test |
 | `npm run verify:tx` | Inventory transaction regression test |
 
-Both suites run against the live database and exit non-zero on any failure. Current: **49 access-control checks, 33 transaction checks**.
+Both suites run against the live database and exit non-zero on any failure. Current: **53 access-control checks, 52 transaction checks**.
 
 ---
 
@@ -216,8 +231,8 @@ scripts/                  Seeding, RLS verification, icon generation
 | 2 | Medicines, suppliers, purchases, stock | Complete |
 | 3 | POS, billing, sales returns | Complete |
 | 4 | Dashboard and reports | Complete |
-| 5 | Multi-branch operations and stock transfers | Next |
-| 6 | Offline sync, mobile payments, audit log | Planned |
+| 5 | Multi-branch operations and stock transfers | Complete |
+| 6 | Offline sync, mobile payments, audit log | Next |
 
 Every table has carried `branch_id` since Phase 1, so multi-branch support in Phase 5 is a user-interface and workflow exercise rather than a migration.
 
