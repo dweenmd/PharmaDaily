@@ -4,7 +4,7 @@ import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
 import { env } from "@/lib/env";
 import { getServerEnv } from "@/lib/env.server";
-import { type Database } from "@/types/database.types";
+import { type Database } from "@/types";
 
 /**
  * Service-role Supabase client. BYPASSES ROW LEVEL SECURITY COMPLETELY.

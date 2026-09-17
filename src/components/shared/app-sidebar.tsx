@@ -17,7 +17,7 @@ import {
   Users,
 } from "lucide-react";
 
-import { type UserRole } from "@/types/database.types";
+import { type UserRole } from "@/types";
 import {
   Sidebar,
   SidebarContent,

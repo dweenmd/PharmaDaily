@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
 import { env } from "@/lib/env";
-import { type Database } from "@/types/database.types";
+import { type Database } from "@/types";
 
 /**
  * Supabase client for Server Components, Server Actions and Route Handlers.

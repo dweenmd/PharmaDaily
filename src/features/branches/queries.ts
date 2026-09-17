@@ -3,7 +3,7 @@ import "server-only";
 import { cache } from "react";
 
 import { createClient } from "@/lib/supabase/server";
-import { type BranchRow } from "@/types/database.types";
+import { type BranchRow } from "@/types";
 
 export type AccessibleBranch = Pick<BranchRow, "id" | "name" | "code" | "address" | "phone">;
 

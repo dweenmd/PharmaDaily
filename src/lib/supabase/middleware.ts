@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 import { env } from "@/lib/env";
-import { type Database } from "@/types/database.types";
+import { type Database } from "@/types";
 
 /** Routes reachable without a session. Everything else requires one. */
 const PUBLIC_PATHS = ["/login", "/auth/callback", "/offline", "/manifest.webmanifest"];

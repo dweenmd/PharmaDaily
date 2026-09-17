@@ -3,7 +3,7 @@ import "server-only";
 import { cache } from "react";
 
 import { createClient } from "@/lib/supabase/server";
-import { type BranchRow, type ProfileRow } from "@/types/database.types";
+import { type BranchRow, type ProfileRow } from "@/types";
 
 /** A profile joined with its branch, which is what the app shell needs. */
 export type CurrentProfile = ProfileRow & {

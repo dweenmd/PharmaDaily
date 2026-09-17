@@ -6,7 +6,7 @@ import { OnlineStatusIndicator } from "@/components/shared/online-status-indicat
 import { UserMenu } from "@/components/shared/user-menu";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { type UserRole } from "@/types/database.types";
+import { type UserRole } from "@/types";
 
 type Props = {
   name: string;

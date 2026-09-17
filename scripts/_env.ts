@@ -1,7 +1,7 @@
 import { config } from "dotenv";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-import { type Database } from "../src/types/database.types";
+import { type Database } from "../src/types";
 
 // Scripts run outside Next, so .env.local has to be loaded explicitly.
 config({ path: ".env.local", quiet: true });

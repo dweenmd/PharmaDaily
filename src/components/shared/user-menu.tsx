@@ -6,7 +6,7 @@ import { toast } from "sonner";
 
 import { signOutAction } from "@/features/auth/actions";
 import { ROLE_LABELS } from "@/lib/auth/roles";
-import { type UserRole } from "@/types/database.types";
+import { type UserRole } from "@/types";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {

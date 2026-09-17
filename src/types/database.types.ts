@@ -1,132 +1,771 @@
-/**
- * Database types for the Supabase client.
- *
- * ---------------------------------------------------------------------------
- * REGENERATE THIS FILE — do not hand-edit it once a database is reachable:
- *
- *     npm run db:types      # local stack (requires Docker + `npm run db:start`)
- *
- * The definitions below were written by hand to match the Phase 1 migrations
- * exactly, so the app is type-safe before the local stack has ever been
- * started. Every later phase should replace this file with generated output
- * rather than extending it manually.
- * ---------------------------------------------------------------------------
- */
-
-export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
-
-export type UserRole =
-  | "super_admin"
-  | "branch_manager"
-  | "cashier"
-  | "stock_manager"
-  | "pharmacist";
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.5"
+  }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
-      branches: {
+      branch_stocks: {
         Row: {
-          id: string;
-          name: string;
-          code: string;
-          address: string | null;
-          phone: string | null;
-          is_active: boolean;
-          created_at: string;
-          updated_at: string;
-          deleted_at: string | null;
-        };
+          batch_no: string
+          branch_id: string
+          created_at: string
+          expiry_date: string
+          id: string
+          is_active: boolean
+          medicine_id: string
+          mrp: number
+          purchase_price: number
+          quantity: number
+          received_date: string
+          reserved_quantity: number
+          selling_price: number
+          supplier_id: string | null
+          updated_at: string
+        }
         Insert: {
-          id?: string;
-          name: string;
-          code: string;
-          address?: string | null;
-          phone?: string | null;
-          is_active?: boolean;
-          created_at?: string;
-          updated_at?: string;
-          deleted_at?: string | null;
-        };
+          batch_no: string
+          branch_id: string
+          created_at?: string
+          expiry_date: string
+          id?: string
+          is_active?: boolean
+          medicine_id: string
+          mrp: number
+          purchase_price: number
+          quantity?: number
+          received_date?: string
+          reserved_quantity?: number
+          selling_price: number
+          supplier_id?: string | null
+          updated_at?: string
+        }
         Update: {
-          id?: string;
-          name?: string;
-          code?: string;
-          address?: string | null;
-          phone?: string | null;
-          is_active?: boolean;
-          created_at?: string;
-          updated_at?: string;
-          deleted_at?: string | null;
-        };
-        Relationships: [];
-      };
-      profiles: {
-        Row: {
-          id: string;
-          auth_id: string;
-          name: string;
-          role: UserRole;
-          branch_id: string | null;
-          is_active: boolean;
-          created_at: string;
-          updated_at: string;
-          deleted_at: string | null;
-        };
-        Insert: {
-          id?: string;
-          auth_id: string;
-          name: string;
-          role?: UserRole;
-          branch_id?: string | null;
-          is_active?: boolean;
-          created_at?: string;
-          updated_at?: string;
-          deleted_at?: string | null;
-        };
-        Update: {
-          id?: string;
-          auth_id?: string;
-          name?: string;
-          role?: UserRole;
-          branch_id?: string | null;
-          is_active?: boolean;
-          created_at?: string;
-          updated_at?: string;
-          deleted_at?: string | null;
-        };
+          batch_no?: string
+          branch_id?: string
+          created_at?: string
+          expiry_date?: string
+          id?: string
+          is_active?: boolean
+          medicine_id?: string
+          mrp?: number
+          purchase_price?: number
+          quantity?: number
+          received_date?: string
+          reserved_quantity?: number
+          selling_price?: number
+          supplier_id?: string | null
+          updated_at?: string
+        }
         Relationships: [
           {
-            foreignKeyName: "profiles_branch_id_fkey";
-            columns: ["branch_id"];
-            referencedRelation: "branches";
-            referencedColumns: ["id"];
+            foreignKeyName: "branch_stocks_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
           },
-        ];
-      };
-    };
-    Views: Record<never, never>;
+          {
+            foreignKeyName: "branch_stocks_medicine_id_fkey"
+            columns: ["medicine_id"]
+            isOneToOne: false
+            referencedRelation: "medicines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "branch_stocks_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      branches: {
+        Row: {
+          address: string | null
+          code: string
+          created_at: string
+          deleted_at: string | null
+          id: string
+          is_active: boolean
+          name: string
+          phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          code: string
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          code?: string
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      medicine_categories: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      medicines: {
+        Row: {
+          barcode: string | null
+          brand_name: string | null
+          category_id: string | null
+          controlled_drug: boolean
+          created_at: string
+          deleted_at: string | null
+          dosage_form: string | null
+          generic_name: string | null
+          id: string
+          is_active: boolean
+          manufacturer: string | null
+          name: string
+          pack_size: string | null
+          prescription_required: boolean
+          reorder_level: number
+          strength: string | null
+          unit: string | null
+          updated_at: string
+        }
+        Insert: {
+          barcode?: string | null
+          brand_name?: string | null
+          category_id?: string | null
+          controlled_drug?: boolean
+          created_at?: string
+          deleted_at?: string | null
+          dosage_form?: string | null
+          generic_name?: string | null
+          id?: string
+          is_active?: boolean
+          manufacturer?: string | null
+          name: string
+          pack_size?: string | null
+          prescription_required?: boolean
+          reorder_level?: number
+          strength?: string | null
+          unit?: string | null
+          updated_at?: string
+        }
+        Update: {
+          barcode?: string | null
+          brand_name?: string | null
+          category_id?: string | null
+          controlled_drug?: boolean
+          created_at?: string
+          deleted_at?: string | null
+          dosage_form?: string | null
+          generic_name?: string | null
+          id?: string
+          is_active?: boolean
+          manufacturer?: string | null
+          name?: string
+          pack_size?: string | null
+          prescription_required?: boolean
+          reorder_level?: number
+          strength?: string | null
+          unit?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "medicines_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "medicine_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          auth_id: string
+          branch_id: string | null
+          created_at: string
+          deleted_at: string | null
+          id: string
+          is_active: boolean
+          name: string
+          role: Database["public"]["Enums"]["user_role"]
+          updated_at: string
+        }
+        Insert: {
+          auth_id: string
+          branch_id?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          role?: Database["public"]["Enums"]["user_role"]
+          updated_at?: string
+        }
+        Update: {
+          auth_id?: string
+          branch_id?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          role?: Database["public"]["Enums"]["user_role"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      purchase_items: {
+        Row: {
+          batch_no: string
+          cost_price: number
+          created_at: string
+          expiry_date: string
+          id: string
+          medicine_id: string
+          mrp: number
+          purchase_id: string
+          quantity: number
+          selling_price: number
+        }
+        Insert: {
+          batch_no: string
+          cost_price: number
+          created_at?: string
+          expiry_date: string
+          id?: string
+          medicine_id: string
+          mrp: number
+          purchase_id: string
+          quantity: number
+          selling_price: number
+        }
+        Update: {
+          batch_no?: string
+          cost_price?: number
+          created_at?: string
+          expiry_date?: string
+          id?: string
+          medicine_id?: string
+          mrp?: number
+          purchase_id?: string
+          quantity?: number
+          selling_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_items_medicine_id_fkey"
+            columns: ["medicine_id"]
+            isOneToOne: false
+            referencedRelation: "medicines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_items_purchase_id_fkey"
+            columns: ["purchase_id"]
+            isOneToOne: false
+            referencedRelation: "purchases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      purchases: {
+        Row: {
+          branch_id: string
+          created_at: string
+          created_by: string | null
+          deleted_at: string | null
+          due_amount: number
+          id: string
+          invoice_no: string
+          notes: string | null
+          paid_amount: number
+          purchase_date: string
+          supplier_id: string
+          total_amount: number
+          updated_at: string
+        }
+        Insert: {
+          branch_id: string
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          due_amount?: number
+          id?: string
+          invoice_no: string
+          notes?: string | null
+          paid_amount?: number
+          purchase_date?: string
+          supplier_id: string
+          total_amount?: number
+          updated_at?: string
+        }
+        Update: {
+          branch_id?: string
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          due_amount?: number
+          id?: string
+          invoice_no?: string
+          notes?: string | null
+          paid_amount?: number
+          purchase_date?: string
+          supplier_id?: string
+          total_amount?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchases_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchases_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchases_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stock_adjustments: {
+        Row: {
+          batch_no: string
+          branch_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          medicine_id: string
+          quantity: number
+          reason: string
+          type: Database["public"]["Enums"]["stock_adjustment_type"]
+        }
+        Insert: {
+          batch_no: string
+          branch_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          medicine_id: string
+          quantity: number
+          reason: string
+          type: Database["public"]["Enums"]["stock_adjustment_type"]
+        }
+        Update: {
+          batch_no?: string
+          branch_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          medicine_id?: string
+          quantity?: number
+          reason?: string
+          type?: Database["public"]["Enums"]["stock_adjustment_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_adjustments_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_adjustments_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_adjustments_medicine_id_fkey"
+            columns: ["medicine_id"]
+            isOneToOne: false
+            referencedRelation: "medicines"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stock_movements: {
+        Row: {
+          batch_no: string
+          branch_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          medicine_id: string
+          quantity: number
+          reference_id: string | null
+          reference_type: string | null
+          type: Database["public"]["Enums"]["stock_movement_type"]
+        }
+        Insert: {
+          batch_no: string
+          branch_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          medicine_id: string
+          quantity: number
+          reference_id?: string | null
+          reference_type?: string | null
+          type: Database["public"]["Enums"]["stock_movement_type"]
+        }
+        Update: {
+          batch_no?: string
+          branch_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          medicine_id?: string
+          quantity?: number
+          reference_id?: string | null
+          reference_type?: string | null
+          type?: Database["public"]["Enums"]["stock_movement_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_movements_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_movements_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_movements_medicine_id_fkey"
+            columns: ["medicine_id"]
+            isOneToOne: false
+            referencedRelation: "medicines"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      suppliers: {
+        Row: {
+          address: string | null
+          created_at: string
+          deleted_at: string | null
+          due_amount: number
+          id: string
+          is_active: boolean
+          name: string
+          phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          due_amount?: number
+          id?: string
+          is_active?: boolean
+          name: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          due_amount?: number
+          id?: string
+          is_active?: boolean
+          name?: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+    }
+    Views: {
+      [_ in never]: never
+    }
     Functions: {
+      can_manage_catalogue: { Args: never; Returns: boolean }
+      create_purchase: {
+        Args: {
+          p_branch_id: string
+          p_invoice_no: string
+          p_items: Json
+          p_notes?: string
+          p_paid_amount: number
+          p_purchase_date: string
+          p_supplier_id: string
+        }
+        Returns: string
+      }
+      create_stock_adjustment: {
+        Args: {
+          p_batch_no: string
+          p_branch_id: string
+          p_medicine_id: string
+          p_quantity: number
+          p_reason: string
+          p_type: Database["public"]["Enums"]["stock_adjustment_type"]
+        }
+        Returns: string
+      }
+      current_user_branch_id: { Args: never; Returns: string }
       current_user_role: {
-        Args: Record<PropertyKey, never>;
-        Returns: UserRole | null;
-      };
-      current_user_branch_id: {
-        Args: Record<PropertyKey, never>;
-        Returns: string | null;
-      };
-      is_super_admin: {
-        Args: Record<PropertyKey, never>;
-        Returns: boolean;
-      };
-    };
+        Args: never
+        Returns: Database["public"]["Enums"]["user_role"]
+      }
+      is_super_admin: { Args: never; Returns: boolean }
+    }
     Enums: {
-      user_role: UserRole;
-    };
-    CompositeTypes: Record<never, never>;
-  };
-};
+      stock_adjustment_type: "increase" | "decrease"
+      stock_movement_type:
+        | "purchase"
+        | "sale"
+        | "transfer_in"
+        | "transfer_out"
+        | "adjustment"
+        | "return"
+      user_role:
+        | "super_admin"
+        | "branch_manager"
+        | "cashier"
+        | "stock_manager"
+        | "pharmacist"
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
+}
 
-/** Convenience aliases so feature code does not spell out the full path. */
-export type BranchRow = Database["public"]["Tables"]["branches"]["Row"];
-export type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+
+export type Tables<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    : never) = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      Row: infer R
+    }
+    ? R
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
+      }
+      ? R
+      : never
+    : never
+
+export type TablesInsert<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never) = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Insert: infer I
+    }
+    ? I
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I
+      }
+      ? I
+      : never
+    : never
+
+export type TablesUpdate<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never) = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Update: infer U
+    }
+    ? U
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U
+      }
+      ? U
+      : never
+    : never
+
+export type Enums<
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never) = never,
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
+
+export type CompositeTypes<
+  PublicCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never) = never,
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never
+
+export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
+  public: {
+    Enums: {
+      stock_adjustment_type: ["increase", "decrease"],
+      stock_movement_type: [
+        "purchase",
+        "sale",
+        "transfer_in",
+        "transfer_out",
+        "adjustment",
+        "return",
+      ],
+      user_role: [
+        "super_admin",
+        "branch_manager",
+        "cashier",
+        "stock_manager",
+        "pharmacist",
+      ],
+    },
+  },
+} as const
