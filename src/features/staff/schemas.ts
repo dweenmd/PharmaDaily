@@ -18,19 +18,35 @@ const passwordSchema = z
   .max(72, "Passwords are limited to 72 characters")
   .refine((v) => !/^[a-z]+$/i.test(v), "Mix in a number or symbol");
 
-export const createStaffSchema = z.object({
-  name: z.string().trim().min(1, "Name is required").max(200),
-  email: z
-    .string()
-    .trim()
-    .min(1, "Email is required")
-    .email("Enter a valid email address")
-    .transform((v) => v.toLowerCase()),
-  password: passwordSchema,
-  role: z.enum(USER_ROLES),
-  // Required for every role except super_admin, who is chain-wide by design.
-  branch_id: z.string().uuid().nullable().default(null),
-});
+export const createStaffSchema = z
+  .object({
+    name: z.string().trim().min(1, "Name is required").max(200),
+    email: z
+      .string()
+      .trim()
+      .min(1, "Email is required")
+      .email("Enter a valid email address")
+      .transform((v) => v.toLowerCase()),
+    // When true, no password is collected here at all — an invite email is
+    // sent and the recipient picks their own. When false, the admin sets one
+    // on the spot and hands it over in person, same as before.
+    send_invite: z.boolean().default(false),
+    password: z.string().optional(),
+    role: z.enum(USER_ROLES),
+    // Required for every role except super_admin, who is chain-wide by design.
+    branch_id: z.string().uuid().nullable().default(null),
+  })
+  .superRefine((val, ctx) => {
+    if (val.send_invite) return;
+    const result = passwordSchema.safeParse(val.password ?? "");
+    if (!result.success) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["password"],
+        message: result.error.issues[0]?.message ?? "Enter a password",
+      });
+    }
+  });
 
 export type CreateStaffValues = z.input<typeof createStaffSchema>;
 export type CreateStaffInput = z.output<typeof createStaffSchema>;

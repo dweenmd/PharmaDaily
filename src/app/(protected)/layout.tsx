@@ -24,6 +24,11 @@ export default async function ProtectedLayout({ children }: LayoutProps<"/">) {
 
   if (!profile) redirect("/login");
 
+  // An invited account has a session but no password of its own yet — every
+  // other page assumes a fully set-up account, so there is nowhere useful to
+  // send them until this is done.
+  if (!profile.password_set) redirect("/set-password");
+
   // Alerts are regenerated here rather than on a schedule: refresh_stock_alerts()
   // is idempotent, so calling it per page load is safe and needs no extra
   // infrastructure. A cron job can call the same function later.

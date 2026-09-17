@@ -12,6 +12,7 @@ export type StaffRow = {
   role: UserRole;
   branch_id: string | null;
   is_active: boolean;
+  password_set: boolean;
   created_at: string;
   branch: { id: string; name: string; code: string } | null;
 };
@@ -30,7 +31,7 @@ export const getStaff = cache(async (): Promise<StaffRow[]> => {
     .from("profiles")
     .select(
       `
-        id, auth_id, name, role, branch_id, is_active, created_at,
+        id, auth_id, name, role, branch_id, is_active, password_set, created_at,
         branch:branches ( id, name, code )
       `,
     )
@@ -46,20 +47,30 @@ export const getStaff = cache(async (): Promise<StaffRow[]> => {
   })) as StaffRow[];
 });
 
+export type StaffAuthMeta = {
+  email: string;
+  last_sign_in_at: string | null;
+};
+
 /**
- * Emails, fetched separately.
+ * Email and sign-in history, fetched separately.
  *
- * They live on auth.users, which application code cannot read — that
- * separation is the point of keeping credentials out of profiles. Shown on the
- * staff list because "which account is this?" is otherwise unanswerable when
- * two people share a name.
+ * Both live on auth.users, which application code cannot read — that
+ * separation is the point of keeping credentials out of profiles. Shown on
+ * the staff list because "which account is this?" is otherwise unanswerable
+ * when two people share a name, and "has this account ever been used?" is
+ * otherwise unanswerable at all.
  */
-export const getStaffEmails = cache(async (): Promise<Record<string, string>> => {
+export const getStaffAuthMeta = cache(async (): Promise<Record<string, StaffAuthMeta>> => {
   const { createAdminClient } = await import("@/lib/supabase/admin");
   const admin = createAdminClient();
 
   const { data, error } = await admin.auth.admin.listUsers({ perPage: 1000 });
   if (error) return {};
 
-  return Object.fromEntries((data.users ?? []).filter((u) => u.email).map((u) => [u.id, u.email!]));
+  return Object.fromEntries(
+    (data.users ?? [])
+      .filter((u) => u.email)
+      .map((u) => [u.id, { email: u.email!, last_sign_in_at: u.last_sign_in_at ?? null }]),
+  );
 });

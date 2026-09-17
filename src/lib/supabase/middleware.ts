@@ -5,7 +5,17 @@ import { env } from "@/lib/env";
 import { type Database } from "@/types";
 
 /** Routes reachable without a session. Everything else requires one. */
-const PUBLIC_PATHS = ["/login", "/auth/callback", "/offline", "/manifest.webmanifest"];
+const PUBLIC_PATHS = [
+  "/login",
+  "/auth/callback",
+  // Reached straight from an email link before any session cookie exists —
+  // the invite/recovery token lives in the URL fragment, which only the
+  // browser ever sees, so this route has to load with no session at all and
+  // establish one client-side once the page has the fragment to read.
+  "/set-password",
+  "/offline",
+  "/manifest.webmanifest",
+];
 
 function isPublicPath(pathname: string) {
   return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));

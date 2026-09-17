@@ -42,6 +42,7 @@ export const getCurrentProfile = cache(async (): Promise<CurrentProfile | null> 
         role,
         branch_id,
         is_active,
+        password_set,
         created_at,
         updated_at,
         deleted_at,

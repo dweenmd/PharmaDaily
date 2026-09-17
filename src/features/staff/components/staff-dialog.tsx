@@ -2,11 +2,12 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { KeyRound, Plus, RefreshCw } from "lucide-react";
+import { KeyRound, Mail, Plus, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
 import {
   createStaffAction,
+  resendInviteAction,
   resetStaffPasswordAction,
   updateStaffAction,
 } from "@/features/staff/actions";
@@ -66,6 +67,7 @@ export function StaffDialog({ branches, isSuperAdmin, ownBranchId, staff }: Prop
   const [name, setName] = React.useState("");
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
+  const [sendInvite, setSendInvite] = React.useState(false);
   const [role, setRole] = React.useState<UserRole>("cashier");
   const [branchId, setBranchId] = React.useState<string | null>(null);
   const [isActive, setIsActive] = React.useState(true);
@@ -78,6 +80,7 @@ export function StaffDialog({ branches, isSuperAdmin, ownBranchId, staff }: Prop
       setName(staff?.name ?? "");
       setEmail("");
       setPassword(isEdit ? "" : suggestPassword());
+      setSendInvite(false);
       setRole(staff?.role ?? "cashier");
       setBranchId(staff?.branch_id ?? (isSuperAdmin ? null : ownBranchId));
       setIsActive(staff?.is_active ?? true);
@@ -108,6 +111,7 @@ export function StaffDialog({ branches, isSuperAdmin, ownBranchId, staff }: Prop
             name,
             email,
             password,
+            send_invite: sendInvite,
             role,
             branch_id: needsBranch ? branchId : null,
           });
@@ -120,7 +124,9 @@ export function StaffDialog({ branches, isSuperAdmin, ownBranchId, staff }: Prop
       toast.success(isEdit ? "Staff member updated" : "Account created", {
         description: isEdit
           ? undefined
-          : "Give them the password and ask them to change it after signing in.",
+          : sendInvite
+            ? `An invite email is on its way to ${email}.`
+            : "Give them the password and ask them to change it after signing in.",
       });
       setOpen(false);
       router.refresh();
@@ -190,34 +196,59 @@ export function StaffDialog({ branches, isSuperAdmin, ownBranchId, staff }: Prop
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="staff-password">
-                  Initial password <span className="text-destructive">*</span>
-                </Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="staff-password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="font-mono text-sm"
-                    disabled={isPending}
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    onClick={() => setPassword(suggestPassword())}
-                    disabled={isPending}
-                    aria-label="Generate another password"
-                  >
-                    <RefreshCw className="size-4" />
-                  </Button>
+              <label className="flex cursor-pointer items-start gap-3">
+                <Checkbox
+                  checked={sendInvite}
+                  onCheckedChange={(v) => setSendInvite(v === true)}
+                  disabled={isPending}
+                />
+                <span className="space-y-0.5">
+                  <span className="block text-sm font-medium">Email them an invite instead</span>
+                  <span className="text-muted-foreground block text-xs">
+                    They set their own password by following a link. Needs email delivery to be
+                    reachable — for a counter that hands over a printed password in person, leave
+                    this off.
+                  </span>
+                </span>
+              </label>
+
+              {sendInvite ? (
+                <Alert>
+                  <AlertDescription>
+                    An invite email goes to {email || "this address"} once you create the account.
+                    Nobody can sign in until they follow it and choose a password.
+                  </AlertDescription>
+                </Alert>
+              ) : (
+                <div className="space-y-2">
+                  <Label htmlFor="staff-password">
+                    Initial password <span className="text-destructive">*</span>
+                  </Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="staff-password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="font-mono text-sm"
+                      disabled={isPending}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setPassword(suggestPassword())}
+                      disabled={isPending}
+                      aria-label="Generate another password"
+                    >
+                      <RefreshCw className="size-4" />
+                    </Button>
+                  </div>
+                  <p className="text-muted-foreground text-xs">
+                    Hand this over in person. They can change it from their account menu — and
+                    should, since you know it.
+                  </p>
                 </div>
-                <p className="text-muted-foreground text-xs">
-                  Hand this over in person. They can change it from their account menu — and should,
-                  since you know it.
-                </p>
-              </div>
+              )}
             </>
           )}
 
@@ -294,7 +325,8 @@ export function StaffDialog({ branches, isSuperAdmin, ownBranchId, staff }: Prop
             disabled={
               isPending ||
               name.trim() === "" ||
-              (!isEdit && (email.trim() === "" || password.length < 12)) ||
+              (!isEdit &&
+                (email.trim() === "" || (!sendInvite && password.length < 12))) ||
               (needsBranch && !branchId)
             }
           >
@@ -396,5 +428,33 @@ export function ResetPasswordDialog({ staff }: { staff: StaffRow }) {
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+// ---------------------------------------------------------------------------
+
+/** For an account still waiting on its first invite email. */
+export function ResendInviteButton({ staff }: { staff: StaffRow }) {
+  const [isPending, startTransition] = React.useTransition();
+
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      aria-label={`Resend invite to ${staff.name}`}
+      disabled={isPending}
+      onClick={() =>
+        startTransition(async () => {
+          const result = await resendInviteAction(staff.id);
+          if (!result.ok) {
+            toast.error(result.error);
+            return;
+          }
+          toast.success("Invite resent");
+        })
+      }
+    >
+      {isPending ? <Spinner /> : <Mail className="size-4" />}
+    </Button>
   );
 }

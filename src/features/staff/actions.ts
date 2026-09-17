@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 
 import { getCurrentProfile } from "@/lib/auth/get-current-profile";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -65,6 +66,25 @@ async function requireStaffAuthority(): Promise<Authority | { error: string }> {
   return { error: "Only a super admin or branch manager can manage staff." };
 }
 
+/**
+ * Best-effort origin for building an invite/reset link.
+ *
+ * A server action has no URL of its own to read, only the request that
+ * invoked it. `origin` is what a browser-issued fetch sends; `host` is the
+ * fallback for the rare client that omits it. Getting this wrong sends
+ * someone an invite link that points at the wrong deployment, so it is worth
+ * the two-header pass.
+ */
+async function siteOrigin(): Promise<string> {
+  const h = await headers();
+  const origin = h.get("origin");
+  if (origin) return origin;
+
+  const host = h.get("host") ?? "localhost:3000";
+  const protocol = host.startsWith("localhost") || host.startsWith("127.0.0.1") ? "http" : "https";
+  return `${protocol}://${host}`;
+}
+
 async function countActiveSuperAdmins(excludeProfileId?: string): Promise<number> {
   const admin = createAdminClient();
 
@@ -93,7 +113,7 @@ export async function createStaffAction(input: CreateStaffInput): Promise<Action
     return { ok: false, error: issue?.message ?? "Invalid input", field: issue?.path[0] as string };
   }
 
-  const { name, email, password, role } = parsed.data;
+  const { name, email, password, role, send_invite } = parsed.data;
   const branchId = role === "super_admin" ? null : parsed.data.branch_id;
 
   const refusal = canAssign(authority, role, branchId);
@@ -101,41 +121,50 @@ export async function createStaffAction(input: CreateStaffInput): Promise<Action
 
   const admin = createAdminClient();
 
-  const { data: created, error: createError } = await admin.auth.admin.createUser({
-    email,
-    password,
-    // No inbox to confirm from on an internal deployment, and the account is
-    // being created by someone who already trusts it.
-    email_confirm: true,
-    user_metadata: { name },
-  });
+  const authResult = send_invite
+    ? await admin.auth.admin.inviteUserByEmail(email, {
+        data: { name },
+        redirectTo: `${await siteOrigin()}/set-password`,
+      })
+    : await admin.auth.admin.createUser({
+        email,
+        password,
+        // No inbox to confirm from on an internal deployment, and the
+        // account is being created by someone who already trusts it.
+        email_confirm: true,
+        user_metadata: { name },
+      });
 
-  if (createError || !created.user) {
-    if (/already been registered|already exists/i.test(createError?.message ?? "")) {
+  if (authResult.error || !authResult.data.user) {
+    if (/already been registered|already exists/i.test(authResult.error?.message ?? "")) {
       return {
         ok: false,
         error: "Someone already has an account with that email.",
         field: "email",
       };
     }
-    return { ok: false, error: "Could not create the account." };
+    return { ok: false, error: send_invite ? "Could not send the invite." : "Could not create the account." };
   }
+
+  const authUserId = authResult.data.user.id;
 
   // The handle_new_user trigger has made an inert profile — inactive, no
   // branch, no meaningful role. Provisioning it is a separate, deliberate
   // step, which is exactly why the trigger refuses to read role from signup
-  // metadata.
+  // metadata. password_set is false only for the invite path: inviteUserByEmail
+  // never sets a password, so the account is real but not yet usable until
+  // they follow the link and choose one.
   const { data: profile, error: promoteError } = await admin
     .from("profiles")
-    .update({ name, role, branch_id: branchId, is_active: true })
-    .eq("auth_id", created.user.id)
+    .update({ name, role, branch_id: branchId, is_active: true, password_set: !send_invite })
+    .eq("auth_id", authUserId)
     .select("id")
     .single();
 
   if (promoteError || !profile) {
     // The auth user exists but has no usable profile. Removing it is better
     // than leaving an account nobody can sign into and nobody can see.
-    await admin.auth.admin.deleteUser(created.user.id);
+    await admin.auth.admin.deleteUser(authUserId);
     return { ok: false, error: "Could not set up the account. Nothing was created." };
   }
 
@@ -235,7 +264,57 @@ export async function resetStaffPasswordAction(
 
   if (error) return { ok: false, error: "Could not reset the password." };
 
+  // An admin-set password is a working password whether or not the account
+  // started as an invite — clears the "still waiting on an invite" state.
+  await admin.from("profiles").update({ password_set: true }).eq("id", profileId);
+
   revalidatePath("/staff");
+  return { ok: true, data: undefined };
+}
+
+// ---------------------------------------------------------------------------
+
+/**
+ * Sends a fresh invite email to an account still waiting on one.
+ *
+ * Invite links expire and inboxes lose things — refuses once password_set is
+ * true so this cannot be used to silently re-invite (and reissue a link for)
+ * someone who already has a working password.
+ */
+export async function resendInviteAction(profileId: string): Promise<ActionResult> {
+  const authority = await requireStaffAuthority();
+  if ("error" in authority) return { ok: false, error: authority.error };
+
+  const admin = createAdminClient();
+
+  const { data: target } = await admin
+    .from("profiles")
+    .select("id, auth_id, role, branch_id, password_set")
+    .eq("id", profileId)
+    .maybeSingle();
+
+  if (!target) return { ok: false, error: "That account no longer exists." };
+  if (target.password_set) {
+    return { ok: false, error: "This account already has a password set." };
+  }
+
+  const refusal = canActOn(authority, target);
+  if (refusal) return { ok: false, error: refusal };
+
+  const { data: authUser, error: getUserError } = await admin.auth.admin.getUserById(
+    target.auth_id,
+  );
+
+  if (getUserError || !authUser.user?.email) {
+    return { ok: false, error: "Could not find that account's email." };
+  }
+
+  const { error } = await admin.auth.admin.inviteUserByEmail(authUser.user.email, {
+    redirectTo: `${await siteOrigin()}/set-password`,
+  });
+
+  if (error) return { ok: false, error: "Could not resend the invite." };
+
   return { ok: true, data: undefined };
 }
 
