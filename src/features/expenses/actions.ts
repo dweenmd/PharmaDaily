@@ -27,8 +27,9 @@ export const expenseSchema = z.object({
     .string()
     .trim()
     .max(300)
+    .nullable()
     .optional()
-    .transform((v) => (v === "" || v === undefined ? null : v)),
+    .transform((v) => (v === "" || v == null ? null : v)),
   amount: z.coerce.number().positive("Amount must be greater than zero"),
   expense_date: z.string().min(1, "Date is required"),
 });

@@ -21,19 +21,25 @@ export const branchSchema = z.object({
     .min(2, "Use at least 2 characters")
     .max(10, "Keep it to 10 characters or fewer")
     .regex(/^[A-Z0-9]+$/, "Letters and digits only — it becomes the invoice prefix"),
+  // .nullable() alongside .optional() matters: zodResolver hands the submit
+  // handler this schema's own TRANSFORMED output (empty string already turned
+  // to null), and the server re-validates that same value through this same
+  // schema — which has to accept the null its own transform just produced.
   address: z
     .string()
     .trim()
     .max(500)
+    .nullable()
     .optional()
-    .transform((v) => (v === "" || v === undefined ? null : v)),
+    .transform((v) => (v === "" || v == null ? null : v)),
   phone: z
     .string()
     .trim()
     .max(30)
     .regex(/^[0-9+\-\s()]*$/, "Phone may contain only digits and + - ( ) characters")
+    .nullable()
     .optional()
-    .transform((v) => (v === "" || v === undefined ? null : v)),
+    .transform((v) => (v === "" || v == null ? null : v)),
   is_active: z.boolean().default(true),
 });
 

@@ -16,14 +16,16 @@ export const paymentSchema = z.object({
     .string()
     .trim()
     .max(64)
+    .nullable()
     .optional()
-    .transform((v) => (v === "" || v === undefined ? null : v)),
+    .transform((v) => (v === "" || v == null ? null : v)),
   notes: z
     .string()
     .trim()
     .max(300)
+    .nullable()
     .optional()
-    .transform((v) => (v === "" || v === undefined ? null : v)),
+    .transform((v) => (v === "" || v == null ? null : v)),
 });
 
 export type PaymentFormValues = z.input<typeof paymentSchema>;

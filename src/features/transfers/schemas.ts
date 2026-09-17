@@ -18,12 +18,16 @@ export const transferItemSchema = z.object({
 export const transferSchema = z.object({
   from_branch_id: z.string().uuid("Select the sending branch"),
   to_branch_id: z.string().uuid("Select the receiving branch"),
+  // .nullable() matters here: zodResolver hands the submit handler this
+  // schema's own transformed output (empty string already turned to null),
+  // and the server re-validates that value through this same schema.
   notes: z
     .string()
     .trim()
     .max(500)
+    .nullable()
     .optional()
-    .transform((v) => (v === "" || v === undefined ? null : v)),
+    .transform((v) => (v === "" || v == null ? null : v)),
   items: z.array(transferItemSchema).min(1, "Add at least one item"),
 });
 

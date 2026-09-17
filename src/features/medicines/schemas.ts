@@ -34,13 +34,24 @@ export const UNITS = [
   "Pack",
 ] as const;
 
-/** Trims, and turns an empty string into null so the column stays NULL. */
+/**
+ * Trims, and turns an empty string into null so the column stays NULL.
+ *
+ * `.nullable()` matters as much as `.optional()` here: zodResolver runs this
+ * schema once client-side and hands the TRANSFORMED output — "" already
+ * turned into null — to the submit handler, which sends exactly that to the
+ * server action. The server re-validates with this same schema, so it has to
+ * accept the null its own transform just produced, or every empty optional
+ * field fails server-side with a bare "Invalid input" no matter what the
+ * person typed.
+ */
 const optionalText = z
   .string()
   .trim()
   .max(200)
+  .nullable()
   .optional()
-  .transform((v) => (v === "" || v === undefined ? null : v));
+  .transform((v) => (v === "" || v == null ? null : v));
 
 export const medicineSchema = z.object({
   name: z.string().trim().min(1, "Medicine name is required").max(200),
@@ -49,9 +60,10 @@ export const medicineSchema = z.object({
   category_id: z
     .string()
     .uuid()
+    .nullable()
     .optional()
     .or(z.literal(""))
-    .transform((v) => (v === "" || v === undefined ? null : v)),
+    .transform((v) => (v === "" || v == null ? null : v)),
   dosage_form: optionalText,
   strength: optionalText,
   unit: optionalText,
@@ -64,8 +76,9 @@ export const medicineSchema = z.object({
     .trim()
     .max(64)
     .regex(/^[A-Za-z0-9-]*$/, "Barcode may contain only letters, digits and hyphens")
+    .nullable()
     .optional()
-    .transform((v) => (v === "" || v === undefined ? null : v)),
+    .transform((v) => (v === "" || v == null ? null : v)),
 
   manufacturer: optionalText,
   prescription_required: z.boolean().default(false),

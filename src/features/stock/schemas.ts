@@ -25,12 +25,16 @@ export const stockAdjustmentSchema = z
     type: z.enum(["increase", "decrease"]),
     quantity: z.coerce.number().int("Whole units only").positive("Quantity must be at least 1"),
     reason: z.enum(ADJUSTMENT_REASONS),
+    // .nullable() matters here: zodResolver hands the submit handler this
+    // schema's own transformed output (empty string already turned to null),
+    // and the server re-validates that value through this same schema.
     reason_detail: z
       .string()
       .trim()
       .max(300)
+      .nullable()
       .optional()
-      .transform((v) => (v === "" || v === undefined ? null : v)),
+      .transform((v) => (v === "" || v == null ? null : v)),
   })
   .superRefine((value, ctx) => {
     if (value.reason === "Other" && !value.reason_detail) {

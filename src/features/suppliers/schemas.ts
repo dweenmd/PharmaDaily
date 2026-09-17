@@ -2,19 +2,24 @@ import { z } from "zod";
 
 export const supplierSchema = z.object({
   name: z.string().trim().min(1, "Supplier name is required").max(200),
+  // .nullable() matters here: zodResolver hands the submit handler this
+  // schema's own transformed output (empty string already turned to null),
+  // and the server re-validates that value through this same schema.
   phone: z
     .string()
     .trim()
     .max(30)
     .regex(/^[0-9+\-\s()]*$/, "Phone may contain only digits and + - ( ) characters")
+    .nullable()
     .optional()
-    .transform((v) => (v === "" || v === undefined ? null : v)),
+    .transform((v) => (v === "" || v == null ? null : v)),
   address: z
     .string()
     .trim()
     .max(500)
+    .nullable()
     .optional()
-    .transform((v) => (v === "" || v === undefined ? null : v)),
+    .transform((v) => (v === "" || v == null ? null : v)),
   is_active: z.boolean().default(true),
 });
 

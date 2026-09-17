@@ -29,12 +29,16 @@ export const purchaseSchema = z
     purchase_date: z.string().min(1, "Purchase date is required"),
     invoice_no: z.string().trim().min(1, "Supplier invoice number is required").max(64),
     paid_amount: z.coerce.number().min(0, "Paid amount cannot be negative").default(0),
+    // .nullable() matters here: zodResolver hands the submit handler this
+    // schema's own transformed output (empty string already turned to null),
+    // and the server re-validates that value through this same schema.
     notes: z
       .string()
       .trim()
       .max(500)
+      .nullable()
       .optional()
-      .transform((v) => (v === "" || v === undefined ? null : v)),
+      .transform((v) => (v === "" || v == null ? null : v)),
     items: z.array(purchaseItemSchema).min(1, "Add at least one item"),
   })
   .superRefine((value, ctx) => {
