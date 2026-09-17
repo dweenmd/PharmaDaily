@@ -108,6 +108,9 @@ async function cleanup() {
     }
 
     await admin.from("invoice_counters").delete().in("branch_id", branchIds);
+    await admin.from("notifications").delete().in("branch_id", branchIds);
+    await admin.from("settings").delete().in("branch_id", branchIds);
+    await admin.from("expenses").delete().in("branch_id", branchIds);
 
     const { data: testPurchases } = await admin
       .from("purchases")
@@ -672,6 +675,151 @@ async function main() {
     "customers are shared across branches by design",
     (aCustomers?.length ?? 0) === 1,
     `got ${aCustomers?.length ?? 0} rows`,
+  );
+
+  // =========================================================================
+  // Phase 4 — reporting, settings and alerts.
+  //
+  // The report functions take a branch id as an argument, which is exactly the
+  // shape of parameter that usually becomes an access-control hole. They are
+  // SECURITY INVOKER, so the argument can only narrow what RLS already allows —
+  // these checks are what prove that claim.
+  // =========================================================================
+  console.log("\n  Phase 4 — reports, settings and alerts");
+
+  const { data: aKpisOwn } = await a.rpc("dashboard_kpis", {
+    p_date: "2026-09-17",
+    p_branch_id: branchA.id,
+  });
+
+  check(
+    "can run reports for their own branch",
+    Array.isArray(aKpisOwn) && aKpisOwn.length === 1,
+    `got ${JSON.stringify(aKpisOwn)}`,
+  );
+
+  // Asking for branch B by id. The function does not refuse — it returns the
+  // report as computed over rows the caller may see, which is none of them.
+  const { data: aKpisOther } = await a.rpc("dashboard_kpis", {
+    p_date: "2026-09-17",
+    p_branch_id: branchB.id,
+  });
+
+  check(
+    "a report for another branch comes back empty, not populated",
+    Array.isArray(aKpisOther) &&
+      aKpisOther.length === 1 &&
+      Number(aKpisOther[0]?.revenue ?? 0) === 0 &&
+      Number(aKpisOther[0]?.sales_count ?? 0) === 0,
+    `got ${JSON.stringify(aKpisOther)}`,
+  );
+
+  const { data: aSalesReport } = await a.rpc("sales_report", {
+    p_from: "2000-01-01",
+    p_to: "2100-01-01",
+    p_branch_id: branchB.id,
+    p_cashier_id: null as unknown as string,
+    p_payment_method: null as unknown as "cash",
+  });
+
+  check(
+    "cannot pull another branch's invoices through the report function",
+    (aSalesReport?.length ?? 0) === 0,
+    `got ${aSalesReport?.length ?? 0} rows`,
+  );
+
+  const { data: aStockReport } = await a.rpc("stock_report", {
+    p_branch_id: null as unknown as string,
+  });
+
+  check(
+    "an unfiltered stock report still only covers their own branch",
+    (aStockReport ?? []).every((r) => r.branch_id === branchA.id),
+    `branches in result: ${JSON.stringify([...new Set((aStockReport ?? []).map((r) => r.branch_code))])}`,
+  );
+
+  // --- Alerts must be generated, never forged --------------------------------
+  //
+  // Forced rather than hoped for: the fixture medicine has 50 in stock, so its
+  // reorder level is pushed above that to guarantee the generator produces a
+  // low-stock alert. A check that silently skips protects nothing.
+  await admin.from("medicines").update({ reorder_level: 9999 }).eq("id", medicine.id);
+  await a.rpc("refresh_stock_alerts", { p_branch_id: branchA.id });
+
+  const { error: forgeAlert } = await a.from("notifications").insert({
+    branch_id: branchA.id,
+    type: "system",
+    message: "Forged alert",
+    dedupe_key: "forged:1",
+  });
+
+  check(
+    "cannot create a notification by hand",
+    forgeAlert !== null,
+    forgeAlert ? undefined : "an alert could be forged",
+  );
+
+  const { data: existingAlert } = await admin
+    .from("notifications")
+    .select("id, message")
+    .eq("branch_id", branchA.id)
+    .limit(1)
+    .maybeSingle();
+
+  check(
+    "the generator actually produced an alert",
+    existingAlert !== null && existingAlert !== undefined,
+    "no alert was generated, so the next two checks would have been skipped",
+  );
+
+  if (existingAlert) {
+    const { error: rewriteAlert } = await a
+      .from("notifications")
+      .update({ message: "Nothing to see here" })
+      .eq("id", existingAlert.id);
+
+    const { data: alertAfter } = await admin
+      .from("notifications")
+      .select("message")
+      .eq("id", existingAlert.id)
+      .single();
+
+    check(
+      "cannot reword an inconvenient alert",
+      alertAfter?.message === existingAlert.message,
+      `message is now "${alertAfter?.message}", error was ${rewriteAlert?.message ?? "none"}`,
+    );
+
+    const { error: markRead } = await a
+      .from("notifications")
+      .update({ is_read: true })
+      .eq("id", existingAlert.id);
+
+    check("can still mark an alert as read", markRead === null, markRead?.message);
+  }
+
+  // --- Settings are a manager's call ----------------------------------------
+  const { error: cashierSetting } = await cashier.from("settings").insert({
+    branch_id: branchA.id,
+    key: "near_expiry_days",
+    value: "1",
+  });
+
+  check(
+    "a cashier cannot change the alert thresholds",
+    cashierSetting !== null,
+    cashierSetting ? undefined : "a cashier rewrote what the business reorders",
+  );
+
+  const { data: globalSettings } = await cashier
+    .from("settings")
+    .select("key")
+    .is("branch_id", null);
+
+  check(
+    "everyone can read the global settings the screens depend on",
+    (globalSettings?.length ?? 0) > 0,
+    `got ${globalSettings?.length ?? 0} rows`,
   );
 
   // =========================================================================

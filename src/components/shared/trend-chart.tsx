@@ -73,19 +73,33 @@ export function TrendChart({ points, className }: Props) {
 
   const maxValue = Math.max(1, ...points.map((p) => Math.max(p.revenue, p.profit)));
 
-  // A round ceiling makes the gridline labels readable numbers rather than
-  // whatever the maximum happened to be.
-  const magnitude = 10 ** Math.floor(Math.log10(maxValue));
-  const ceiling = Math.ceil(maxValue / magnitude) * magnitude;
+  // Profit CAN be negative — selling below cost is allowed, deliberately, for
+  // clearing near-expiry stock. A scale that started at zero would draw those
+  // days below the baseline and outside the plot, which is the kind of silent
+  // overflow that makes a chart lie rather than fail.
+  const minValue = Math.min(0, ...points.map((p) => Math.min(p.revenue, p.profit)));
+
+  // Round the bounds so the gridline labels are readable numbers rather than
+  // whatever the extremes happened to be.
+  const roundTo = (value: number, mode: "up" | "down") => {
+    if (value === 0) return 0;
+    const magnitude = 10 ** Math.floor(Math.log10(Math.abs(value)));
+    const scaled = value / magnitude;
+    return (mode === "up" ? Math.ceil(scaled) : Math.floor(scaled)) * magnitude;
+  };
+
+  const ceiling = roundTo(maxValue, "up");
+  const floor = roundTo(minValue, "down");
+  const span = ceiling - floor || 1;
 
   const x = (i: number) =>
     PAD.left + (points.length === 1 ? innerWidth / 2 : (i / (points.length - 1)) * innerWidth);
-  const y = (value: number) => PAD.top + innerHeight - (value / ceiling) * innerHeight;
+  const y = (value: number) => PAD.top + innerHeight - ((value - floor) / span) * innerHeight;
 
   const path = (key: "revenue" | "profit") =>
     points.map((p, i) => `${i === 0 ? "M" : "L"} ${x(i)} ${y(p[key])}`).join(" ");
 
-  const ticks = [0, 0.25, 0.5, 0.75, 1].map((t) => t * ceiling);
+  const ticks = [0, 0.25, 0.5, 0.75, 1].map((t) => floor + t * span);
 
   // Label the ends and nothing between — a number on every point is noise.
   const labelledIndices = new Set([0, points.length - 1]);
@@ -200,7 +214,7 @@ export function TrendChart({ points, className }: Props) {
                   fill="var(--viz-ink-muted)"
                   style={{ fontVariantNumeric: "tabular-nums" }}
                 >
-                  {tick >= 1000 ? `${Math.round(tick / 1000)}k` : Math.round(tick)}
+                  {Math.abs(tick) >= 1000 ? `${Math.round(tick / 1000)}k` : Math.round(tick)}
                 </text>
               </g>
             ))}
