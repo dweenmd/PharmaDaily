@@ -13,6 +13,7 @@ export type { Database, Json } from "./database.types";
 export type UserRole = Database["public"]["Enums"]["user_role"];
 export type StockMovementType = Database["public"]["Enums"]["stock_movement_type"];
 export type StockAdjustmentType = Database["public"]["Enums"]["stock_adjustment_type"];
+export type PaymentMethod = Database["public"]["Enums"]["payment_method"];
 
 type Tables = Database["public"]["Tables"];
 
@@ -42,3 +43,13 @@ export type PurchaseItemRow = Tables["purchase_items"]["Row"];
 
 export type StockMovementRow = Tables["stock_movements"]["Row"];
 export type StockAdjustmentRow = Tables["stock_adjustments"]["Row"];
+
+export type CustomerRow = Tables["customers"]["Row"];
+export type CustomerInsert = Tables["customers"]["Insert"];
+
+export type SaleRow = Tables["sales"]["Row"];
+export type SaleItemRow = Tables["sale_items"]["Row"];
+export type PaymentRow = Tables["payments"]["Row"];
+
+export type SalesReturnRow = Tables["sales_returns"]["Row"];
+export type SalesReturnItemRow = Tables["sales_return_items"]["Row"];
