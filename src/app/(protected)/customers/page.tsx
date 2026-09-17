@@ -47,7 +47,10 @@ export default async function CustomersPage({
         action={<AddCustomerDialog />}
       />
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      {/* Two-up from the smallest screen. A short label and a number do not
+          need a full row each, and stacking them full-width leaves a "0"
+          floating in a band of empty space. */}
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
         <StatTile label="Customers" value={String(customers.length)} />
         <StatTile
           label="Owed to the pharmacy"

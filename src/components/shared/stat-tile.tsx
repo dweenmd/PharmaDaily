@@ -1,4 +1,6 @@
 import * as React from "react";
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
@@ -48,26 +50,59 @@ const STATUS_LABEL: Record<Status, string> = {
  * every digit the width of a zero, which looks loose at display sizes — it is
  * for columns that must line up, not for a headline.
  */
-export function StatTile({ label, value, hint, icon: Icon, status = "neutral", className }: Props) {
-  return (
-    <Card className={cn("viz-root", className)}>
-      <CardContent className="space-y-1 pt-5">
-        <div className="text-muted-foreground flex items-center gap-1.5 text-xs font-medium">
-          {Icon && <Icon className="size-3.5" />}
-          {label}
-        </div>
+export function StatTile({
+  label,
+  value,
+  hint,
+  icon: Icon,
+  status = "neutral",
+  href,
+  className,
+}: Props) {
+  const body = (
+    <CardContent className="space-y-1 px-4 pt-4 pb-4 sm:px-6 sm:pt-5">
+      <div className="text-muted-foreground flex items-center gap-1.5 text-xs font-medium">
+        {Icon && <Icon className="size-3.5 shrink-0" />}
+        <span className="min-w-0 truncate">{label}</span>
+        {href && (
+          <ArrowRight className="ml-auto size-3.5 shrink-0 opacity-0 transition-opacity group-hover/tile:opacity-100" />
+        )}
+      </div>
 
-        <p className="text-2xl leading-tight font-semibold">{value}</p>
+      {/* Steps down a size on phones: two tiles side by side at 360px leave
+          about 150px each, and "BDT 12,500.00" at text-2xl does not fit in
+          that without wrapping mid-number. */}
+      <p className="text-xl leading-tight font-semibold sm:text-2xl">{value}</p>
 
-        <div className="flex items-center gap-1.5">
-          {status !== "neutral" && (
-            <span className={cn("text-xs font-medium", STATUS_TEXT[status])}>
-              {STATUS_LABEL[status]}
-            </span>
-          )}
-          {hint && <p className="text-muted-foreground text-xs">{hint}</p>}
-        </div>
-      </CardContent>
-    </Card>
+      <div className="flex items-center gap-1.5">
+        {status !== "neutral" && (
+          <span className={cn("text-xs font-medium", STATUS_TEXT[status])}>
+            {STATUS_LABEL[status]}
+          </span>
+        )}
+        {hint && <p className="text-muted-foreground text-xs">{hint}</p>}
+      </div>
+    </CardContent>
   );
+
+  // A number that names a problem — "5 low on stock" — should be the way to
+  // the list of those five, not a dead end the reader has to go find in the
+  // nav. The arrow only appears on hover so a tile that leads nowhere and a
+  // tile that leads somewhere still look the same at rest.
+  if (href) {
+    return (
+      <Card
+        className={cn(
+          "viz-root group/tile hover:border-primary/40 transition-colors hover:shadow-sm",
+          className,
+        )}
+      >
+        <Link href={href} className="focus-visible:ring-ring rounded-xl focus-visible:ring-2 focus-visible:outline-none">
+          {body}
+        </Link>
+      </Card>
+    );
+  }
+
+  return <Card className={cn("viz-root", className)}>{body}</Card>;
 }

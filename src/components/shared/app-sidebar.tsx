@@ -24,7 +24,6 @@ import { type UserRole } from "@/types";
 import {
   Sidebar,
   SidebarContent,
-  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
@@ -61,31 +60,47 @@ const ALL: readonly UserRole[] = [
  * only. Each route re-checks authorisation server-side, and the database
  * enforces branch isolation regardless of what the client renders.
  */
+/**
+ * Who may sell. Must stay in step with can_sell() in the database — a
+ * pharmacist can complete sales (and is the only one who can dispense a
+ * controlled drug), so hiding the till from them just means typing the URL
+ * by hand.
+ */
+const CAN_SELL: readonly UserRole[] = [
+  "super_admin",
+  "branch_manager",
+  "cashier",
+  "pharmacist",
+] as const;
+
 const NAV_GROUPS: NavGroup[] = [
   {
     label: "Overview",
     items: [{ title: "Dashboard", href: "/dashboard", icon: LayoutDashboard, roles: ALL }],
   },
   {
+    // The till comes first inside its group and the group comes first after
+    // the dashboard: it is the screen a counter spends the whole day in, and
+    // every click it costs is paid hundreds of times a week.
     label: "Sell",
     items: [
       {
-        title: "Customers",
-        href: "/customers",
-        icon: Users,
-        roles: ["super_admin", "branch_manager", "cashier", "pharmacist"],
-      },
-      {
-        title: "POS / Billing",
+        title: "Point of Sale",
         href: "/pos",
         icon: ShoppingCart,
-        roles: ["super_admin", "branch_manager", "cashier"],
+        roles: CAN_SELL,
       },
       {
         title: "Sales",
         href: "/sales",
         icon: Receipt,
-        roles: ["super_admin", "branch_manager", "cashier"],
+        roles: CAN_SELL,
+      },
+      {
+        title: "Customers",
+        href: "/customers",
+        icon: Users,
+        roles: CAN_SELL,
       },
     ],
   },
@@ -125,19 +140,16 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    label: "Insights",
+    // Money that moves today, as opposed to reports about money that moved
+    // already — opening and counting a till is a shift-level chore, not an
+    // insight, and grouping it with the charts buried it.
+    label: "Money",
     items: [
       {
-        title: "Cash",
+        title: "Cash & till",
         href: "/cash",
         icon: Banknote,
-        roles: ["super_admin", "branch_manager", "cashier", "pharmacist"],
-      },
-      {
-        title: "Audit log",
-        href: "/audit",
-        icon: ScrollText,
-        roles: ["super_admin", "branch_manager"],
+        roles: CAN_SELL,
       },
       {
         title: "Expenses",
@@ -145,10 +157,21 @@ const NAV_GROUPS: NavGroup[] = [
         icon: Wallet,
         roles: ["super_admin", "branch_manager"],
       },
+    ],
+  },
+  {
+    label: "Reports",
+    items: [
       {
         title: "Reports",
         href: "/reports/sales",
         icon: BarChart3,
+        roles: ["super_admin", "branch_manager"],
+      },
+      {
+        title: "Audit log",
+        href: "/audit",
+        icon: ScrollText,
         roles: ["super_admin", "branch_manager"],
       },
     ],
@@ -243,11 +266,12 @@ export function AppSidebar({ role }: { role: UserRole }) {
         ))}
       </SidebarContent>
 
-      <SidebarFooter>
-        <p className="text-muted-foreground px-2 py-1 text-[10px] group-data-[collapsible=icon]:hidden">
-          Phase 6 · Offline &amp; audit
-        </p>
-      </SidebarFooter>
+      {/*
+        No footer note. What used to sit here — "Phase 6 · Offline & audit" —
+        was the build plan leaking into the product: it means nothing to
+        someone running a pharmacy, and the space reads cleaner empty than
+        filled with something they have to ignore.
+      */}
 
       <SidebarRail />
     </Sidebar>

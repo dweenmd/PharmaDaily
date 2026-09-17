@@ -114,7 +114,7 @@ export default async function SalesReportPage({
         showPaymentMethod
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
         <StatTile label="Revenue" value={formatCurrency(revenue)} />
         <StatTile label="Profit" value={formatCurrency(profit)} hint="after cost of goods" />
         <StatTile label="Collected" value={formatCurrency(collected)} />

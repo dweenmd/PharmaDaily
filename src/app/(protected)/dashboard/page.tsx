@@ -7,6 +7,7 @@ import {
   CircleDollarSign,
   PackageX,
   Receipt,
+  ShoppingCart,
   TrendingUp,
   TriangleAlert,
 } from "lucide-react";
@@ -19,7 +20,6 @@ import { formatCurrency } from "@/lib/format";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatTile } from "@/components/shared/stat-tile";
 import { TrendChart } from "@/components/shared/trend-chart";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -43,6 +43,11 @@ export default async function DashboardPage({
 
   const params = await searchParams;
   const superAdmin = isSuperAdmin(profile.role);
+
+  // Mirrors can_sell() in the database and the sidebar's own CAN_SELL — a
+  // pharmacist sells too, and a stock manager does not.
+  const canSell = ["super_admin", "branch_manager", "cashier", "pharmacist"].includes(profile.role);
+  const canViewReports = ["super_admin", "branch_manager"].includes(profile.role);
 
   const branches = await getAccessibleBranches();
 
@@ -81,12 +86,26 @@ export default async function DashboardPage({
             : `${profile.branch?.name ?? "Unassigned"} · ${ROLE_LABELS[profile.role]}`
         }
         action={
-          <Button asChild variant="outline">
-            <Link href="/reports/sales">
-              <BarChart3 className="size-4" />
-              Reports
-            </Link>
-          </Button>
+          <>
+            {/* The primary button is the job, not the analysis of the job:
+                anyone who can sell lands here and then goes to the till. */}
+            {canSell && (
+              <Button asChild>
+                <Link href="/pos">
+                  <ShoppingCart className="size-4" />
+                  New sale
+                </Link>
+              </Button>
+            )}
+            {canViewReports && (
+              <Button asChild variant="outline">
+                <Link href="/reports/sales">
+                  <BarChart3 className="size-4" />
+                  Reports
+                </Link>
+              </Button>
+            )}
+          </>
         }
       />
 
@@ -110,18 +129,20 @@ export default async function DashboardPage({
         </div>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <StatTile
           label="Sales today"
           value={formatCurrency(kpis.revenue)}
           hint={`${kpis.sales_count} invoice${Number(kpis.sales_count) === 1 ? "" : "s"}`}
           icon={Receipt}
+          href="/sales"
         />
         <StatTile
           label="Profit today"
           value={formatCurrency(kpis.profit)}
           hint="Revenue less cost of goods"
           icon={TrendingUp}
+          href="/reports/profit"
         />
         <StatTile
           label="Low stock"
@@ -129,6 +150,7 @@ export default async function DashboardPage({
           hint="medicines at or below reorder level"
           icon={TriangleAlert}
           status={lowStock === 0 ? "good" : lowStock > 10 ? "serious" : "warning"}
+          href="/stock/low"
         />
         <StatTile
           label="Near expiry"
@@ -136,6 +158,7 @@ export default async function DashboardPage({
           hint={expired > 0 ? `${expired} already expired` : "batches expiring soon"}
           icon={CalendarClock}
           status={expired > 0 ? "critical" : nearExpiry === 0 ? "good" : "warning"}
+          href="/stock"
         />
       </div>
 
@@ -157,54 +180,37 @@ export default async function DashboardPage({
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardDescription className="flex items-center gap-1.5">
-              <CircleDollarSign className="size-3.5" />
-              Collected today
-            </CardDescription>
-            <CardTitle className="text-xl">{formatCurrency(kpis.collected)}</CardTitle>
-          </CardHeader>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-3">
-            <CardDescription className="flex items-center gap-1.5">
-              <Receipt className="size-3.5" />
-              Left on credit today
-            </CardDescription>
-            <CardTitle
-              className={`text-xl ${Number(kpis.outstanding) > 0 ? "text-[var(--viz-warning)]" : ""}`}
-            >
-              {formatCurrency(kpis.outstanding)}
-            </CardTitle>
-          </CardHeader>
-        </Card>
-
-        <Card className="viz-root">
-          <CardHeader className="pb-3">
-            <CardDescription className="flex items-center gap-1.5">
-              <PackageX className="size-3.5" />
-              Expired stock on shelf
-            </CardDescription>
-            <CardTitle className="flex items-center gap-2 text-xl">
-              {expired}
-              {expired > 0 && (
-                <Badge variant="destructive" className="text-[10px]">
-                  Remove today
-                </Badge>
-              )}
-            </CardTitle>
-          </CardHeader>
-          {expired > 0 && (
-            <CardContent>
-              <Button asChild variant="outline" size="sm">
-                <Link href="/stock">Review stock</Link>
-              </Button>
-            </CardContent>
-          )}
-        </Card>
+      {/*
+        Same shape as the row above, deliberately: these were three
+        hand-rolled cards with their own type scale and padding, which read as
+        a different kind of thing sitting under four tiles that say exactly
+        the same kind of thing — a labelled number. One component, one
+        rhythm, and each one now leads somewhere.
+      */}
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
+        <StatTile
+          label="Collected today"
+          value={formatCurrency(kpis.collected)}
+          hint="cash and digital, at the till"
+          icon={CircleDollarSign}
+          href="/cash"
+        />
+        <StatTile
+          label="Left on credit today"
+          value={formatCurrency(kpis.outstanding)}
+          hint="owed by customers"
+          icon={Receipt}
+          status={Number(kpis.outstanding) > 0 ? "warning" : "good"}
+          href="/customers?owing=1"
+        />
+        <StatTile
+          label="Expired stock on shelf"
+          value={String(expired)}
+          hint={expired > 0 ? "remove from sale today" : "nothing expired"}
+          icon={PackageX}
+          status={expired > 0 ? "critical" : "good"}
+          href="/stock"
+        />
       </div>
     </div>
   );

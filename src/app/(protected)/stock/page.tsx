@@ -86,7 +86,7 @@ export default async function StockPage() {
         />
       ) : (
         <>
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
             <Card>
               <CardHeader className="pb-2">
                 <CardDescription>Batches</CardDescription>

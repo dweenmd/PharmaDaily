@@ -769,6 +769,38 @@ export function PosTerminal({
         </Card>
       </div>
 
+      {/*
+        Below lg the cart panel sits underneath a nearly full-height results
+        list, so the total and the pay button are a scroll away — on a till,
+        the two things that must never be. This bar keeps them one tap away
+        and disappears at lg, where the side panel already shows both.
+      */}
+      {lines.length > 0 && (
+        <div className="bg-background/95 supports-[backdrop-filter]:bg-background/80 fixed inset-x-0 bottom-0 z-40 flex items-center gap-3 border-t px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur lg:hidden">
+          <div className="min-w-0 flex-1">
+            <p className="text-muted-foreground text-xs">
+              {itemCount} item{itemCount === 1 ? "" : "s"}
+              {cappedDiscount > 0 && ` · −${formatCurrency(cappedDiscount)}`}
+            </p>
+            <p className="truncate text-lg leading-tight font-semibold tabular-nums">
+              {formatCurrency(total)}
+            </p>
+          </div>
+
+          <Button
+            size="lg"
+            className="shrink-0"
+            disabled={blockingIssues.length > 0 || isPending}
+            onClick={() => setPaymentOpen(true)}
+          >
+            Pay Now
+          </Button>
+        </div>
+      )}
+
+      {/* Clears the fixed bar so the last cart row is never hidden behind it. */}
+      {lines.length > 0 && <div className="h-20 lg:hidden" aria-hidden />}
+
       <PaymentDialog
         open={paymentOpen}
         onOpenChange={setPaymentOpen}
