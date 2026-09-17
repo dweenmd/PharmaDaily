@@ -39,6 +39,60 @@ export type Database = {
   }
   public: {
     Tables: {
+      audit_logs: {
+        Row: {
+          action: string
+          branch_id: string | null
+          changed_fields: string[] | null
+          created_at: string
+          id: string
+          new_data: Json | null
+          old_data: Json | null
+          record_id: string | null
+          table_name: string
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          branch_id?: string | null
+          changed_fields?: string[] | null
+          created_at?: string
+          id?: string
+          new_data?: Json | null
+          old_data?: Json | null
+          record_id?: string | null
+          table_name: string
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          branch_id?: string | null
+          changed_fields?: string[] | null
+          created_at?: string
+          id?: string
+          new_data?: Json | null
+          old_data?: Json | null
+          record_id?: string | null
+          table_name?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_logs_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audit_logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       branch_stocks: {
         Row: {
           batch_no: string
@@ -150,6 +204,134 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      cash_movements: {
+        Row: {
+          amount: number
+          branch_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          reason: string
+          reference_id: string | null
+          reference_type: string | null
+          session_id: string
+          type: Database["public"]["Enums"]["cash_movement_type"]
+        }
+        Insert: {
+          amount: number
+          branch_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          reason: string
+          reference_id?: string | null
+          reference_type?: string | null
+          session_id: string
+          type: Database["public"]["Enums"]["cash_movement_type"]
+        }
+        Update: {
+          amount?: number
+          branch_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          reason?: string
+          reference_id?: string | null
+          reference_type?: string | null
+          session_id?: string
+          type?: Database["public"]["Enums"]["cash_movement_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cash_movements_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cash_movements_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cash_movements_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "cash_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cash_sessions: {
+        Row: {
+          branch_id: string
+          closed_at: string | null
+          closed_by: string | null
+          counted_cash: number | null
+          expected_cash: number | null
+          id: string
+          notes: string | null
+          opened_at: string
+          opened_by: string | null
+          opening_float: number
+          variance: number | null
+          variance_reason: string | null
+        }
+        Insert: {
+          branch_id: string
+          closed_at?: string | null
+          closed_by?: string | null
+          counted_cash?: number | null
+          expected_cash?: number | null
+          id?: string
+          notes?: string | null
+          opened_at?: string
+          opened_by?: string | null
+          opening_float: number
+          variance?: number | null
+          variance_reason?: string | null
+        }
+        Update: {
+          branch_id?: string
+          closed_at?: string | null
+          closed_by?: string | null
+          counted_cash?: number | null
+          expected_cash?: number | null
+          id?: string
+          notes?: string | null
+          opened_at?: string
+          opened_by?: string | null
+          opening_float?: number
+          variance?: number | null
+          variance_reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cash_sessions_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cash_sessions_closed_by_fkey"
+            columns: ["closed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cash_sessions_opened_by_fkey"
+            columns: ["opened_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       customer_payments: {
         Row: {
@@ -462,6 +644,66 @@ export type Database = {
           {
             foreignKeyName: "notifications_user_id_fkey"
             columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      offline_sync_queue: {
+        Row: {
+          attempts: number
+          branch_id: string
+          created_at: string
+          created_by: string | null
+          error_message: string | null
+          id: string
+          occurred_at: string
+          operation: string
+          payload: Json
+          result_id: string | null
+          status: Database["public"]["Enums"]["sync_status"]
+          synced_at: string | null
+        }
+        Insert: {
+          attempts?: number
+          branch_id: string
+          created_at?: string
+          created_by?: string | null
+          error_message?: string | null
+          id: string
+          occurred_at: string
+          operation?: string
+          payload: Json
+          result_id?: string | null
+          status?: Database["public"]["Enums"]["sync_status"]
+          synced_at?: string | null
+        }
+        Update: {
+          attempts?: number
+          branch_id?: string
+          created_at?: string
+          created_by?: string | null
+          error_message?: string | null
+          id?: string
+          occurred_at?: string
+          operation?: string
+          payload?: Json
+          result_id?: string | null
+          status?: Database["public"]["Enums"]["sync_status"]
+          synced_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "offline_sync_queue_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offline_sync_queue_created_by_fkey"
+            columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -1348,6 +1590,15 @@ export type Database = {
       can_approve_transfers: { Args: never; Returns: boolean }
       can_manage_catalogue: { Args: never; Returns: boolean }
       can_sell: { Args: never; Returns: boolean }
+      cash_session_expected: { Args: { p_session_id: string }; Returns: number }
+      close_cash_session: {
+        Args: {
+          p_counted_cash: number
+          p_session_id: string
+          p_variance_reason?: string
+        }
+        Returns: number
+      }
       create_purchase: {
         Args: {
           p_branch_id: string
@@ -1421,6 +1672,10 @@ export type Database = {
       is_super_admin: { Args: never; Returns: boolean }
       next_invoice_no: { Args: { p_branch_id: string }; Returns: string }
       next_transfer_no: { Args: never; Returns: string }
+      open_cash_session: {
+        Args: { p_branch_id: string; p_notes?: string; p_opening_float: number }
+        Returns: string
+      }
       profit_report: {
         Args: { p_branch_id?: string; p_from: string; p_to: string }
         Returns: {
@@ -1445,6 +1700,17 @@ export type Database = {
       recompute_supplier_balance: {
         Args: { p_supplier_id: string }
         Returns: number
+      }
+      record_cash_movement: {
+        Args: {
+          p_amount: number
+          p_reason: string
+          p_reference_id?: string
+          p_reference_type?: string
+          p_session_id: string
+          p_type: Database["public"]["Enums"]["cash_movement_type"]
+        }
+        Returns: string
       }
       record_customer_payment: {
         Args: {
@@ -1521,8 +1787,18 @@ export type Database = {
           total_quantity: number
         }[]
       }
+      sync_offline_sale: {
+        Args: {
+          p_branch_id: string
+          p_occurred_at: string
+          p_payload: Json
+          p_queue_id: string
+        }
+        Returns: string
+      }
     }
     Enums: {
+      cash_movement_type: "pay_out" | "pay_in" | "bank_deposit"
       notification_type:
         | "low_stock"
         | "near_expiry"
@@ -1539,6 +1815,7 @@ export type Database = {
         | "transfer_out"
         | "adjustment"
         | "return"
+      sync_status: "pending" | "synced" | "failed"
       transfer_status: "pending" | "approved" | "completed" | "rejected"
       user_role:
         | "super_admin"
@@ -1676,6 +1953,7 @@ export const Constants = {
   },
   public: {
     Enums: {
+      cash_movement_type: ["pay_out", "pay_in", "bank_deposit"],
       notification_type: [
         "low_stock",
         "near_expiry",
@@ -1694,6 +1972,7 @@ export const Constants = {
         "adjustment",
         "return",
       ],
+      sync_status: ["pending", "synced", "failed"],
       transfer_status: ["pending", "approved", "completed", "rejected"],
       user_role: [
         "super_admin",

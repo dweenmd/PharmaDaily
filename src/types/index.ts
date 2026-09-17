@@ -16,6 +16,8 @@ export type StockAdjustmentType = Database["public"]["Enums"]["stock_adjustment_
 export type PaymentMethod = Database["public"]["Enums"]["payment_method"];
 export type NotificationType = Database["public"]["Enums"]["notification_type"];
 export type TransferStatus = Database["public"]["Enums"]["transfer_status"];
+export type CashMovementType = Database["public"]["Enums"]["cash_movement_type"];
+export type SyncStatus = Database["public"]["Enums"]["sync_status"];
 
 type Tables = Database["public"]["Tables"];
 
@@ -73,3 +75,8 @@ export type SupplierPaymentRow = Tables["supplier_payments"]["Row"];
 
 export type StockTransferRow = Tables["stock_transfers"]["Row"];
 export type StockTransferItemRow = Tables["stock_transfer_items"]["Row"];
+
+export type AuditLogRow = Tables["audit_logs"]["Row"];
+export type CashSessionRow = Tables["cash_sessions"]["Row"];
+export type CashMovementRow = Tables["cash_movements"]["Row"];
+export type OfflineQueueRow = Tables["offline_sync_queue"]["Row"];
