@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { KeyRound, LogOut, User as UserIcon } from "lucide-react";
 import { toast } from "sonner";
 
@@ -79,9 +80,11 @@ export function UserMenu({ name, role, branchName }: Props) {
           <KeyRound className="size-4" />
           Change password
         </DropdownMenuItem>
-        <DropdownMenuItem disabled>
-          <UserIcon className="size-4" />
-          Profile
+        <DropdownMenuItem asChild>
+          <Link href="/profile">
+            <UserIcon className="size-4" />
+            Profile
+          </Link>
         </DropdownMenuItem>
 
         <DropdownMenuSeparator />

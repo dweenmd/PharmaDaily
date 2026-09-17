@@ -360,17 +360,22 @@ export function ResetPasswordDialog({ staff }: { staff: StaffRow }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="ghost" size="sm" aria-label={`Reset password for ${staff.name}`}>
+        <Button
+          variant="ghost"
+          size="sm"
+          aria-label={`${staff.password_set ? "Reset" : "Set"} password for ${staff.name}`}
+        >
           <KeyRound className="size-4" />
         </Button>
       </DialogTrigger>
 
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>Reset password</DialogTitle>
+          <DialogTitle>{staff.password_set ? "Reset password" : "Set password"}</DialogTitle>
           <DialogDescription>
-            {staff.name} will need this to sign in. Their existing sessions stay valid until they
-            expire.
+            {staff.password_set
+              ? `${staff.name} will need this to sign in. Their existing sessions stay valid until they expire.`
+              : `Skips the invite email — ${staff.name} can sign in with this straight away. Useful when email delivery is not set up yet.`}
           </DialogDescription>
         </DialogHeader>
 
@@ -416,7 +421,9 @@ export function ResetPasswordDialog({ staff }: { staff: StaffRow }) {
                   setError(result.error);
                   return;
                 }
-                toast.success("Password reset", { description: "Hand it over in person." });
+                toast.success(staff.password_set ? "Password reset" : "Password set", {
+                  description: "Hand it over in person.",
+                });
                 setOpen(false);
                 router.refresh();
               })

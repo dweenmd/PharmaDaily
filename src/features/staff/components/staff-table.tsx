@@ -226,11 +226,8 @@ export function StaffTable({
                       <TableCell>
                         {editable ? (
                           <div className="flex items-center justify-end gap-0.5">
-                            {pendingInvite ? (
-                              <ResendInviteButton staff={member} />
-                            ) : (
-                              <ResetPasswordDialog staff={member} />
-                            )}
+                            {pendingInvite && <ResendInviteButton staff={member} />}
+                            <ResetPasswordDialog staff={member} />
                             <StaffDialog
                               branches={branches}
                               isSuperAdmin={isSuperAdmin}
