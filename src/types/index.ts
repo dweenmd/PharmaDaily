@@ -14,6 +14,7 @@ export type UserRole = Database["public"]["Enums"]["user_role"];
 export type StockMovementType = Database["public"]["Enums"]["stock_movement_type"];
 export type StockAdjustmentType = Database["public"]["Enums"]["stock_adjustment_type"];
 export type PaymentMethod = Database["public"]["Enums"]["payment_method"];
+export type NotificationType = Database["public"]["Enums"]["notification_type"];
 
 type Tables = Database["public"]["Tables"];
 
@@ -53,3 +54,15 @@ export type PaymentRow = Tables["payments"]["Row"];
 
 export type SalesReturnRow = Tables["sales_returns"]["Row"];
 export type SalesReturnItemRow = Tables["sales_return_items"]["Row"];
+
+export type SettingRow = Tables["settings"]["Row"];
+export type ExpenseRow = Tables["expenses"]["Row"];
+export type NotificationRow = Tables["notifications"]["Row"];
+
+type Functions = Database["public"]["Functions"];
+
+export type DashboardKpis = Functions["dashboard_kpis"]["Returns"][number];
+export type SalesTrendPoint = Functions["sales_trend"]["Returns"][number];
+export type ProfitReportRow = Functions["profit_report"]["Returns"][number];
+export type StockReportRow = Functions["stock_report"]["Returns"][number];
+export type SalesReportRow = Functions["sales_report"]["Returns"][number];

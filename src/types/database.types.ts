@@ -187,6 +187,60 @@ export type Database = {
         }
         Relationships: []
       }
+      expenses: {
+        Row: {
+          amount: number
+          branch_id: string
+          category: string
+          created_at: string
+          created_by: string | null
+          deleted_at: string | null
+          description: string | null
+          expense_date: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          branch_id: string
+          category: string
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          description?: string | null
+          expense_date?: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          branch_id?: string
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          description?: string | null
+          expense_date?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expenses_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expenses_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoice_counters: {
         Row: {
           branch_id: string
@@ -304,6 +358,54 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "medicine_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications: {
+        Row: {
+          branch_id: string | null
+          created_at: string
+          dedupe_key: string
+          id: string
+          is_read: boolean
+          message: string
+          type: Database["public"]["Enums"]["notification_type"]
+          user_id: string | null
+        }
+        Insert: {
+          branch_id?: string | null
+          created_at?: string
+          dedupe_key: string
+          id?: string
+          is_read?: boolean
+          message: string
+          type: Database["public"]["Enums"]["notification_type"]
+          user_id?: string | null
+        }
+        Update: {
+          branch_id?: string | null
+          created_at?: string
+          dedupe_key?: string
+          id?: string
+          is_read?: boolean
+          message?: string
+          type?: Database["public"]["Enums"]["notification_type"]
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -525,6 +627,7 @@ export type Database = {
         Row: {
           batch_no: string
           branch_stock_id: string
+          cost_price: number
           created_at: string
           id: string
           medicine_id: string
@@ -536,6 +639,7 @@ export type Database = {
         Insert: {
           batch_no: string
           branch_stock_id: string
+          cost_price?: number
           created_at?: string
           id?: string
           medicine_id: string
@@ -547,6 +651,7 @@ export type Database = {
         Update: {
           batch_no?: string
           branch_stock_id?: string
+          cost_price?: number
           created_at?: string
           id?: string
           medicine_id?: string
@@ -746,6 +851,38 @@ export type Database = {
           },
         ]
       }
+      settings: {
+        Row: {
+          branch_id: string | null
+          id: string
+          key: string
+          updated_at: string
+          value: string
+        }
+        Insert: {
+          branch_id?: string | null
+          id?: string
+          key: string
+          updated_at?: string
+          value: string
+        }
+        Update: {
+          branch_id?: string | null
+          id?: string
+          key?: string
+          updated_at?: string
+          value?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "settings_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       stock_adjustments: {
         Row: {
           batch_no: string
@@ -907,6 +1044,7 @@ export type Database = {
     }
     Functions: {
       can_manage_catalogue: { Args: never; Returns: boolean }
+      can_sell: { Args: never; Returns: boolean }
       create_purchase: {
         Args: {
           p_branch_id: string
@@ -955,11 +1093,92 @@ export type Database = {
         Args: never
         Returns: Database["public"]["Enums"]["user_role"]
       }
+      dashboard_kpis: {
+        Args: { p_branch_id?: string; p_date?: string }
+        Returns: {
+          collected: number
+          expired_count: number
+          low_stock_count: number
+          near_expiry_count: number
+          outstanding: number
+          profit: number
+          revenue: number
+          sales_count: number
+        }[]
+      }
       is_super_admin: { Args: never; Returns: boolean }
       next_invoice_no: { Args: { p_branch_id: string }; Returns: string }
+      profit_report: {
+        Args: { p_branch_id?: string; p_from: string; p_to: string }
+        Returns: {
+          cost: number
+          margin_percent: number
+          medicine_id: string
+          medicine_name: string
+          profit: number
+          revenue: number
+          strength: string
+          units_sold: number
+        }[]
+      }
+      refresh_stock_alerts: { Args: { p_branch_id?: string }; Returns: number }
       returned_quantity: { Args: { p_sale_item_id: string }; Returns: number }
+      sales_report: {
+        Args: {
+          p_branch_id?: string
+          p_cashier_id?: string
+          p_from: string
+          p_payment_method?: Database["public"]["Enums"]["payment_method"]
+          p_to: string
+        }
+        Returns: {
+          branch_code: string
+          cashier_name: string
+          created_at: string
+          customer_name: string
+          discount: number
+          due_amount: number
+          invoice_no: string
+          methods: string
+          paid_amount: number
+          profit: number
+          sale_date: string
+          sale_id: string
+          subtotal: number
+          total_amount: number
+        }[]
+      }
+      sales_trend: {
+        Args: { p_branch_id?: string; p_from: string; p_to: string }
+        Returns: {
+          day: string
+          profit: number
+          revenue: number
+          sales_count: number
+        }[]
+      }
+      stock_report: {
+        Args: { p_branch_id?: string }
+        Returns: {
+          batch_count: number
+          branch_code: string
+          branch_id: string
+          category_name: string
+          cost_value: number
+          retail_value: number
+          supplier_name: string
+          total_quantity: number
+        }[]
+      }
     }
     Enums: {
+      notification_type:
+        | "low_stock"
+        | "near_expiry"
+        | "expired"
+        | "transfer"
+        | "sales"
+        | "system"
       payment_method: "cash" | "bkash" | "nagad" | "card" | "due"
       stock_adjustment_type: "increase" | "decrease"
       stock_movement_type:
@@ -1105,6 +1324,14 @@ export const Constants = {
   },
   public: {
     Enums: {
+      notification_type: [
+        "low_stock",
+        "near_expiry",
+        "expired",
+        "transfer",
+        "sales",
+        "system",
+      ],
       payment_method: ["cash", "bkash", "nagad", "card", "due"],
       stock_adjustment_type: ["increase", "decrease"],
       stock_movement_type: [
