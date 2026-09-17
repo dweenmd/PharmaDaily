@@ -71,14 +71,12 @@ const NAV_GROUPS: NavGroup[] = [
         href: "/pos",
         icon: ShoppingCart,
         roles: ["super_admin", "branch_manager", "cashier"],
-        comingSoon: true,
       },
       {
         title: "Sales",
         href: "/sales",
         icon: Receipt,
         roles: ["super_admin", "branch_manager", "cashier"],
-        comingSoon: true,
       },
     ],
   },
@@ -225,7 +223,7 @@ export function AppSidebar({ role }: { role: UserRole }) {
 
       <SidebarFooter>
         <p className="text-muted-foreground px-2 py-1 text-[10px] group-data-[collapsible=icon]:hidden">
-          Phase 2 · Inventory &amp; purchasing
+          Phase 3 · Point of sale
         </p>
       </SidebarFooter>
 
