@@ -28,6 +28,16 @@ Consequences worth knowing before you change anything:
 
 `npm run verify:rls` proves all of this against a real database. Run it after any migration that adds a table or touches a policy.
 
+## Inventory integrity
+
+`branch_stocks.quantity` is a running balance. `stock_movements` is the append-only ledger it must agree with — every quantity change writes a signed row there in the same transaction, and no `UPDATE` or `DELETE` is granted on it to anyone, super admin included. Correcting a mistake means writing a compensating movement, exactly as a ledger works.
+
+Recording a consignment touches five things: the purchase header, its line items, `branch_stocks`, `stock_movements`, and the supplier's balance. PostgREST has no client-side transaction, so these happen inside the `create_purchase()` database function — one call, one statement, one transaction. A dropped connection cannot leave stock on the shelf that the ledger does not know about. `create_stock_adjustment()` works the same way, and takes a row lock so two concurrent decreases cannot both subtract from the same starting quantity.
+
+Both functions run `SECURITY INVOKER`, so every write inside them is checked against the caller's own RLS policies. A consequence worth knowing: they gate on `auth.uid()`, so a service-role caller has no identity and is refused. Nothing server-side can record a purchase without acting as a real user.
+
+`npm run verify:tx` proves this, including that a purchase which fails partway leaves nothing behind.
+
 ---
 
 ## Getting started
@@ -132,7 +142,8 @@ Local development needs nothing hosted. When you are ready to deploy:
 | `npm run db:push` | Apply migrations to the linked hosted project |
 | `npm run db:types` | Regenerate database types |
 | `npm run seed:admin` | Create or promote the super admin |
-| `npm run verify:rls` | Security regression test |
+| `npm run verify:rls` | Access-control regression test |
+| `npm run verify:tx` | Inventory transaction regression test |
 
 ---
 
@@ -171,8 +182,8 @@ scripts/                  Seeding, RLS verification, icon generation
 | Phase | Scope | Status |
 | --- | --- | --- |
 | 1 | Setup, authentication, roles, RLS | Complete |
-| 2 | Medicines, suppliers, purchases, stock | Next |
-| 3 | POS, billing, sales returns | Planned |
+| 2 | Medicines, suppliers, purchases, stock | Complete |
+| 3 | POS, billing, sales returns | Next |
 | 4 | Dashboard and reports | Planned |
 | 5 | Multi-branch operations and stock transfers | Planned |
 | 6 | Offline sync, mobile payments, audit log | Planned |
@@ -185,5 +196,5 @@ Every table has carried `branch_id` since Phase 1, so multi-branch support in Ph
 
 - **Migrations are append-only.** Never edit one that has been pushed; write a new one.
 - **Every new table repeats the RLS pattern** documented at the top of `supabase/migrations/*_rls_policies_branches_profiles.sql`. Child tables without their own `branch_id` scope through their parent.
-- **Re-run `npm run verify:rls`** after any policy change, and extend it to cover new tables.
+- **Re-run `npm run verify:rls` and `npm run verify:tx`** after any policy or transaction change, and extend them to cover new tables.
 - **Prices live on `branch_stocks`,** never on `medicines` — the same medicine costs different amounts in different batches.

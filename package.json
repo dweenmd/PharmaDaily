@@ -16,7 +16,8 @@
     "db:push": "supabase db push",
     "db:types": "supabase gen types typescript --local > src/types/database.types.ts",
     "seed:admin": "tsx scripts/seed-super-admin.ts",
-    "verify:rls": "tsx scripts/verify-rls.ts"
+    "verify:rls": "tsx scripts/verify-rls.ts",
+    "verify:tx": "tsx scripts/verify-transactions.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
