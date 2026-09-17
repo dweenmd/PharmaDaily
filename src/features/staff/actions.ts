@@ -7,7 +7,6 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { type ActionResult } from "@/features/medicines/schemas";
 import {
-  MANAGER_ASSIGNABLE_ROLES,
   changeOwnPasswordSchema,
   createStaffSchema,
   resetPasswordSchema,
