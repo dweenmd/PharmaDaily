@@ -53,6 +53,20 @@ Invoice numbers (`BRANCHCODE-YYYY-XXXX`) come from a counter table incremented w
 
 `public.can_sell()` decides who may take payment or issue a refund: super admin, branch manager, cashier and pharmacist. Stock managers are deliberately excluded — their job is receiving deliveries, not handling money.
 
+### Balances are derived, never written
+
+`customers.due_amount` and `suppliers.due_amount` look like editable columns and are not:
+
+```
+due = what is still owed on their invoices - what they have paid
+```
+
+Both columns are **removed from the `UPDATE` grant**. Postgres checks column privileges against the `SET` clause, so an attempt to write one is refused at the privilege layer — before RLS, before any trigger. The only thing that writes them is a `recompute_*_balance()` function, which is safe to expose precisely because it takes no amount: it reads the source records and sets the answer, so calling it with bad intent just recomputes the truth.
+
+This closed a hole that was live until it was found: the grant used to cover every column, so a cashier could zero a customer's debt and a stock manager could zero a supplier balance, hiding money the business owed. It was the same bug as the Phase 1 privilege escalation on `profiles` — the rule was written down there and not applied here. `verify:rls` now asserts both cases.
+
+`record_customer_payment()` and `record_supplier_payment()` write an append-only ledger row and then recompute, so a double-submitted form cannot drive a balance below what is owed, and neither will accept more than is outstanding.
+
 ---
 
 ## Getting started
@@ -160,6 +174,8 @@ Local development needs nothing hosted. When you are ready to deploy:
 | `npm run verify:rls` | Access-control regression test |
 | `npm run verify:tx` | Inventory transaction regression test |
 
+Both suites run against the live database and exit non-zero on any failure. Current: **49 access-control checks, 33 transaction checks**.
+
 ---
 
 ## Project layout
@@ -199,8 +215,8 @@ scripts/                  Seeding, RLS verification, icon generation
 | 1 | Setup, authentication, roles, RLS | Complete |
 | 2 | Medicines, suppliers, purchases, stock | Complete |
 | 3 | POS, billing, sales returns | Complete |
-| 4 | Dashboard and reports | Next |
-| 5 | Multi-branch operations and stock transfers | Planned |
+| 4 | Dashboard and reports | Complete |
+| 5 | Multi-branch operations and stock transfers | Next |
 | 6 | Offline sync, mobile payments, audit log | Planned |
 
 Every table has carried `branch_id` since Phase 1, so multi-branch support in Phase 5 is a user-interface and workflow exercise rather than a migration.
