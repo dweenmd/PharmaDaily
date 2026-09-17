@@ -80,6 +80,31 @@ async function cleanup() {
     }
   }
 
+  // Deleted child-first: foreign keys are ON DELETE RESTRICT precisely so that
+  // production cannot orphan stock or ledger rows, which means the test
+  // fixtures have to be unwound in dependency order too.
+  const { data: testBranches } = await admin.from("branches").select("id").like("code", "RLS%");
+  const branchIds = (testBranches ?? []).map((b) => b.id);
+
+  if (branchIds.length > 0) {
+    await admin.from("stock_movements").delete().in("branch_id", branchIds);
+    await admin.from("stock_adjustments").delete().in("branch_id", branchIds);
+
+    const { data: testPurchases } = await admin
+      .from("purchases")
+      .select("id")
+      .in("branch_id", branchIds);
+    const purchaseIds = (testPurchases ?? []).map((p) => p.id);
+    if (purchaseIds.length > 0) {
+      await admin.from("purchase_items").delete().in("purchase_id", purchaseIds);
+      await admin.from("purchases").delete().in("id", purchaseIds);
+    }
+
+    await admin.from("branch_stocks").delete().in("branch_id", branchIds);
+  }
+
+  await admin.from("medicines").delete().like("name", "RLSTest%");
+  await admin.from("suppliers").delete().like("name", "RLSTest%");
   await admin.from("branches").delete().like("code", "RLS%");
 }
 
@@ -173,6 +198,277 @@ async function main() {
     "cannot rename another branch",
     branchBAfter?.name === "RLS Test Branch B",
     `name is now ${branchBAfter?.name}, error was ${crossBranchWrite?.message ?? "none"}`,
+  );
+
+  // =========================================================================
+  // Phase 2 — inventory.
+  //
+  // These are the rows that actually matter commercially: cost prices, stock
+  // levels and supplier invoices. If branch isolation leaks anywhere, it leaks
+  // here.
+  // =========================================================================
+  console.log("\n  Phase 2 — catalogue and stock");
+
+  const { data: medicine } = await admin
+    .from("medicines")
+    .insert({ name: "RLSTest Paracetamol", strength: "500mg", reorder_level: 10 })
+    .select("id")
+    .single();
+
+  const { data: supplier } = await admin
+    .from("suppliers")
+    .insert({ name: "RLSTest Distributors" })
+    .select("id")
+    .single();
+
+  if (!medicine || !supplier) throw new Error("catalogue fixture failed");
+
+  // Stock at BOTH branches, so a leak shows up as branch A seeing B's row.
+  const { data: stockRows } = await admin
+    .from("branch_stocks")
+    .insert([
+      {
+        branch_id: branchA.id,
+        medicine_id: medicine.id,
+        batch_no: "RLSBATCH-A",
+        expiry_date: "2030-01-31",
+        quantity: 50,
+        purchase_price: 5,
+        selling_price: 8,
+        mrp: 10,
+        supplier_id: supplier.id,
+      },
+      {
+        branch_id: branchB.id,
+        medicine_id: medicine.id,
+        batch_no: "RLSBATCH-B",
+        expiry_date: "2030-02-28",
+        quantity: 70,
+        purchase_price: 5,
+        selling_price: 8,
+        mrp: 10,
+        supplier_id: supplier.id,
+      },
+    ])
+    .select("id, branch_id, batch_no");
+
+  if (!stockRows || stockRows.length !== 2) throw new Error("stock fixture failed");
+
+  // A purchase at branch B, to prove the indirect (parent-scoped) policy on
+  // purchase_items holds. That policy is the easiest one to get wrong, and
+  // getting it wrong exposes every branch's cost prices chain-wide.
+  const { data: purchaseB } = await admin
+    .from("purchases")
+    .insert({
+      supplier_id: supplier.id,
+      branch_id: branchB.id,
+      invoice_no: "RLS-INV-B",
+      total_amount: 350,
+      paid_amount: 0,
+      due_amount: 350,
+    })
+    .select("id")
+    .single();
+
+  if (!purchaseB) throw new Error("purchase fixture failed");
+
+  await admin.from("purchase_items").insert({
+    purchase_id: purchaseB.id,
+    medicine_id: medicine.id,
+    batch_no: "RLSBATCH-B",
+    expiry_date: "2030-02-28",
+    quantity: 70,
+    cost_price: 5,
+    selling_price: 8,
+    mrp: 10,
+  });
+
+  // --- Branch manager A, looking at inventory -------------------------------
+  const { data: aStock } = await a.from("branch_stocks").select("batch_no");
+  check(
+    "sees only their own branch's stock",
+    aStock?.length === 1 && aStock[0]?.batch_no === "RLSBATCH-A",
+    `got: ${JSON.stringify(aStock?.map((s) => s.batch_no))}`,
+  );
+
+  const { data: aPurchases } = await a.from("purchases").select("invoice_no");
+  check(
+    "cannot see another branch's purchases",
+    !(aPurchases ?? []).some((p) => p.invoice_no === "RLS-INV-B"),
+    `got: ${JSON.stringify(aPurchases?.map((p) => p.invoice_no))}`,
+  );
+
+  const { data: aPurchaseItems } = await a.from("purchase_items").select("id, cost_price");
+  check(
+    "cannot see another branch's cost prices via purchase_items",
+    (aPurchaseItems?.length ?? 0) === 0,
+    `got ${aPurchaseItems?.length ?? 0} line items`,
+  );
+
+  const { data: aMedicines } = await a.from("medicines").select("id").eq("id", medicine.id);
+  check(
+    "can read the shared medicine catalogue",
+    (aMedicines?.length ?? 0) === 1,
+    `got ${aMedicines?.length ?? 0} rows`,
+  );
+
+  // --- Branch manager A, trying to write across the boundary ----------------
+  const otherBranchStockId = stockRows.find((s) => s.branch_id === branchB.id)!.id;
+
+  const { error: crossStockWrite } = await a
+    .from("branch_stocks")
+    .update({ quantity: 9999 })
+    .eq("id", otherBranchStockId);
+
+  const { data: stockBAfter } = await admin
+    .from("branch_stocks")
+    .select("quantity")
+    .eq("id", otherBranchStockId)
+    .single();
+
+  check(
+    "cannot alter another branch's stock quantity",
+    stockBAfter?.quantity === 70,
+    `quantity is now ${stockBAfter?.quantity}, error was ${crossStockWrite?.message ?? "none"}`,
+  );
+
+  const { error: crossBranchPurchase } = await a.rpc("create_purchase", {
+    p_branch_id: branchB.id,
+    p_supplier_id: supplier.id,
+    p_purchase_date: "2026-09-17",
+    p_invoice_no: "RLS-INV-SMUGGLED",
+    p_paid_amount: 0,
+    p_items: [
+      {
+        medicine_id: medicine.id,
+        batch_no: "RLSBATCH-X",
+        expiry_date: "2030-06-30",
+        quantity: 10,
+        cost_price: 5,
+        selling_price: 8,
+        mrp: 10,
+      },
+    ],
+  });
+
+  check(
+    "cannot record a purchase into another branch",
+    crossBranchPurchase !== null,
+    crossBranchPurchase ? undefined : "the RPC succeeded — branch isolation is broken",
+  );
+
+  // --- The ledger must be append-only ---------------------------------------
+  const { data: movementFixture } = await admin
+    .from("stock_movements")
+    .insert({
+      branch_id: branchA.id,
+      medicine_id: medicine.id,
+      batch_no: "RLSBATCH-A",
+      type: "purchase",
+      quantity: 50,
+    })
+    .select("id")
+    .single();
+
+  if (movementFixture) {
+    const { error: ledgerUpdate } = await a
+      .from("stock_movements")
+      .update({ quantity: 1 })
+      .eq("id", movementFixture.id);
+
+    const { data: movementAfter } = await admin
+      .from("stock_movements")
+      .select("quantity")
+      .eq("id", movementFixture.id)
+      .single();
+
+    check(
+      "cannot rewrite a stock ledger entry",
+      movementAfter?.quantity === 50,
+      `quantity is now ${movementAfter?.quantity}, error was ${ledgerUpdate?.message ?? "none"}`,
+    );
+
+    const { error: ledgerDelete } = await a
+      .from("stock_movements")
+      .delete()
+      .eq("id", movementFixture.id);
+
+    const { count: movementCount } = await admin
+      .from("stock_movements")
+      .select("id", { count: "exact", head: true })
+      .eq("id", movementFixture.id);
+
+    check(
+      "cannot delete a stock ledger entry",
+      movementCount === 1,
+      `row count is ${movementCount}, error was ${ledgerDelete?.message ?? "none"}`,
+    );
+  }
+
+  // --- Stock cannot be driven negative --------------------------------------
+  const { error: overRemove } = await a.rpc("create_stock_adjustment", {
+    p_branch_id: branchA.id,
+    p_medicine_id: medicine.id,
+    p_batch_no: "RLSBATCH-A",
+    p_type: "decrease",
+    p_quantity: 999,
+    p_reason: "RLS test over-removal",
+  });
+
+  check(
+    "cannot remove more stock than exists",
+    overRemove !== null,
+    overRemove ? undefined : "the adjustment succeeded — stock could go negative",
+  );
+
+  // --- A cashier may read the catalogue but not edit it ---------------------
+  const cashierEmail = `${PREFIX}-cashier@example.com`;
+  await createStaff(cashierEmail, "Cashier A", "branch_manager", branchA.id);
+  // Demote to cashier via the service role, which the escalation guard allows.
+  await admin.from("profiles").update({ role: "cashier" }).eq("name", "Cashier A");
+
+  const cashier = await signIn(cashierEmail);
+
+  const { data: cashierMedicines } = await cashier.from("medicines").select("id");
+  check(
+    "a cashier can read the catalogue",
+    (cashierMedicines?.length ?? 0) >= 1,
+    `got ${cashierMedicines?.length ?? 0} rows`,
+  );
+
+  const { error: cashierMedicineInsert } = await cashier
+    .from("medicines")
+    .insert({ name: "RLSTest Rogue Medicine" });
+
+  check(
+    "a cashier cannot add to the catalogue",
+    cashierMedicineInsert !== null,
+    cashierMedicineInsert ? undefined : "the insert succeeded",
+  );
+
+  const { error: cashierPurchase } = await cashier.rpc("create_purchase", {
+    p_branch_id: branchA.id,
+    p_supplier_id: supplier.id,
+    p_purchase_date: "2026-09-17",
+    p_invoice_no: "RLS-INV-CASHIER",
+    p_paid_amount: 0,
+    p_items: [
+      {
+        medicine_id: medicine.id,
+        batch_no: "RLSBATCH-C",
+        expiry_date: "2030-06-30",
+        quantity: 5,
+        cost_price: 5,
+        selling_price: 8,
+        mrp: 10,
+      },
+    ],
+  });
+
+  check(
+    "a cashier cannot record purchases",
+    cashierPurchase !== null,
+    cashierPurchase ? undefined : "the RPC succeeded",
   );
 
   // =========================================================================

@@ -93,20 +93,6 @@ export const getStock = cache(
   },
 );
 
-/** One batch, for the adjustment screen. */
-export const getStockById = cache(async (id: string): Promise<StockRow | null> => {
-  const supabase = await createClient();
-
-  const { data, error } = await supabase
-    .from("branch_stocks")
-    .select(STOCK_SELECT)
-    .eq("id", id)
-    .maybeSingle();
-
-  if (error || !data) return null;
-  return normalise([data as never])[0] ?? null;
-});
-
 export type StockAggregate = {
   medicine_id: string;
   medicine_name: string;

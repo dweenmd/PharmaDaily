@@ -4,7 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Controller, useFieldArray, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { AlertCircle, Plus, Trash2, TriangleAlert } from "lucide-react";
+import { AlertCircle, CalendarX2, Plus, Trash2, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 
 import { createPurchaseAction } from "@/features/purchases/actions";
@@ -14,7 +14,7 @@ import {
   type PurchaseInput,
 } from "@/features/purchases/schemas";
 import { MedicineCombobox, type MedicineOption } from "@/components/shared/medicine-combobox";
-import { formatCurrency } from "@/lib/format";
+import { expiryStatus, formatCurrency } from "@/lib/format";
 import { type SupplierRow } from "@/types";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -106,6 +106,22 @@ export function PurchaseForm({
         Number(item?.cost_price) > 0 &&
         Number(item.selling_price) < Number(item.cost_price),
     );
+
+  /**
+   * Expiry dates that are already past or nearly so.
+   *
+   * Receiving short-dated stock is a real thing — distributors clear it at a
+   * discount — so this warns rather than blocks. It exists because the common
+   * case is a typo: last year's year in the expiry field silently puts
+   * unsellable stock on the shelf, and nobody notices until a customer is
+   * standing at the counter.
+   */
+  const expiryWarnings = (items ?? [])
+    .map((item, index) => ({
+      index,
+      status: item?.expiry_date ? expiryStatus(item.expiry_date) : null,
+    }))
+    .filter(({ status }) => status === "expired" || status === "critical");
 
   function onSubmit(values: PurchaseInput) {
     setFormError(null);
@@ -393,6 +409,21 @@ export function PurchaseForm({
           })}
         </CardContent>
       </Card>
+
+      {expiryWarnings.length > 0 && (
+        <Alert>
+          <CalendarX2 />
+          <AlertDescription>
+            {expiryWarnings.some((w) => w.status === "expired")
+              ? `Line ${expiryWarnings
+                  .filter((w) => w.status === "expired")
+                  .map((w) => w.index + 1)
+                  .join(", ")} has an expiry date in the past.`
+              : `Line ${expiryWarnings.map((w) => w.index + 1).join(", ")} expires within 30 days.`}{" "}
+            Check the year is right before saving — this stock cannot be sold once it expires.
+          </AlertDescription>
+        </Alert>
+      )}
 
       {lossMakingRows.length > 0 && (
         <Alert>

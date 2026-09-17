@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Boxes, SlidersHorizontal, TriangleAlert } from "lucide-react";
+import { Boxes, ScrollText, SlidersHorizontal, TriangleAlert } from "lucide-react";
 
 import { getStock } from "@/features/stock/queries";
 import { getCurrentProfile } from "@/lib/auth/get-current-profile";
@@ -47,6 +47,12 @@ export default async function StockPage() {
         }
         action={
           <div className="flex gap-2">
+            <Button asChild variant="outline">
+              <Link href="/stock/movements">
+                <ScrollText className="size-4" />
+                Ledger
+              </Link>
+            </Button>
             <Button asChild variant="outline">
               <Link href="/stock/low">
                 <TriangleAlert className="size-4" />
