@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Users } from "lucide-react";
 
+import { AddCustomerDialog } from "@/features/customers/components/add-customer-dialog";
 import { getCustomers } from "@/features/customers/queries";
 import { formatCurrency, toNumber } from "@/lib/format";
 import { EmptyState, NoResultsState } from "@/components/shared/empty-state";
@@ -43,6 +44,7 @@ export default async function CustomersPage({
       <PageHeader
         title="Customers"
         description="Shared across every branch, so credit follows the customer rather than the outlet."
+        action={<AddCustomerDialog />}
       />
 
       <div className="grid gap-4 sm:grid-cols-3">
@@ -64,12 +66,8 @@ export default async function CustomersPage({
           <EmptyState
             icon={Users}
             title="No customers yet"
-            description="Customers are added at the counter when a sale is put on credit."
-            action={
-              <Button asChild>
-                <Link href="/pos">Open POS</Link>
-              </Button>
-            }
+            description="Add one here, or at the counter the first time they buy something on credit."
+            action={<AddCustomerDialog />}
           />
         )
       ) : (
