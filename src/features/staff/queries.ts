@@ -36,6 +36,11 @@ export const getStaff = cache(async (): Promise<StaffRow[]> => {
       `,
     )
     .is("deleted_at", null)
+    // `role` is a Postgres enum declared in hierarchy order (super_admin,
+    // branch_manager, cashier, stock_manager, pharmacist) — ordering by the
+    // column sorts by that declaration order, not alphabetically, with no
+    // CASE expression needed.
+    .order("role")
     .order("is_active", { ascending: false })
     .order("name");
 
