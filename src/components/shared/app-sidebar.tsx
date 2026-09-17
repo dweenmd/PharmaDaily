@@ -90,28 +90,24 @@ const NAV_GROUPS: NavGroup[] = [
         href: "/medicines",
         icon: Pill,
         roles: ["super_admin", "branch_manager", "stock_manager", "pharmacist"],
-        comingSoon: true,
       },
       {
         title: "Stock",
         href: "/stock",
         icon: Boxes,
         roles: ["super_admin", "branch_manager", "stock_manager"],
-        comingSoon: true,
       },
       {
         title: "Purchases",
         href: "/purchases",
         icon: Package,
         roles: ["super_admin", "branch_manager", "stock_manager"],
-        comingSoon: true,
       },
       {
         title: "Suppliers",
         href: "/suppliers",
         icon: Truck,
         roles: ["super_admin", "branch_manager", "stock_manager"],
-        comingSoon: true,
       },
       {
         title: "Transfers",
@@ -229,7 +225,7 @@ export function AppSidebar({ role }: { role: UserRole }) {
 
       <SidebarFooter>
         <p className="text-muted-foreground px-2 py-1 text-[10px] group-data-[collapsible=icon]:hidden">
-          Phase 1 · Auth &amp; access control
+          Phase 2 · Inventory &amp; purchasing
         </p>
       </SidebarFooter>
 
