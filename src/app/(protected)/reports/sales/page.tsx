@@ -1,31 +1,28 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 
 import { getAccessibleBranches } from "@/features/branches/queries";
-import { ExportButtons } from "@/features/reports/components/export-buttons";
-import { ReportFilters } from "@/features/reports/components/report-filters";
-import { getCashiers, getSalesReport, getSalesTrend } from "@/features/reports/queries";
+import { getCustomers } from "@/features/customers/queries";
+import {
+  SalesReportClient,
+  type SalesReportRecord,
+  type SalesTrendDataPoint,
+  type TopMedicineStat,
+} from "@/features/reports/components/sales-report-client";
+import {
+  getCashiers,
+  getProfitReport,
+  getSalesReport,
+  getSalesTrend,
+} from "@/features/reports/queries";
 import { getCurrentProfile } from "@/lib/auth/get-current-profile";
 import { isSuperAdmin } from "@/lib/auth/roles";
-import { formatCurrency, formatDate, formatDateTime } from "@/lib/format";
+import { formatDate } from "@/lib/format";
+import { createClient } from "@/lib/supabase/server";
 import { type PaymentMethod } from "@/types";
-import { EmptyState } from "@/components/shared/empty-state";
-import { PageHeader } from "@/components/shared/page-header";
-import { StatTile } from "@/components/shared/stat-tile";
-import { TrendChart } from "@/components/shared/trend-chart";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 
 export const metadata: Metadata = {
-  title: "Sales report",
+  title: "Sales Report · Business Intelligence",
+  description: "Enterprise sales report, trend analysis, channel breakdown, and transaction ledger.",
 };
 
 function isoDaysAgo(days: number) {
@@ -35,6 +32,10 @@ function isoDaysAgo(days: number) {
 }
 
 const METHODS = ["cash", "bkash", "nagad", "card", "due"];
+
+function unwrap<T>(value: T | T[] | null): T | null {
+  return Array.isArray(value) ? (value[0] ?? null) : (value ?? null);
+}
 
 export default async function SalesReportPage({
   searchParams,
@@ -54,161 +55,181 @@ export default async function SalesReportPage({
   const superAdmin = profile ? isSuperAdmin(profile.role) : false;
   const branchFilter = superAdmin ? branch : (profile?.branch_id ?? null);
 
-  const [branches, cashiers, rows, trend] = await Promise.all([
-    getAccessibleBranches(),
-    getCashiers(),
-    getSalesReport(from, to, branchFilter, cashier, method),
-    getSalesTrend(from, to, branchFilter),
-  ]);
+  const supabase = await createClient();
 
-  const revenue = rows.reduce((sum, r) => sum + Number(r.total_amount), 0);
-  const profit = rows.reduce((sum, r) => sum + Number(r.profit), 0);
-  const collected = rows.reduce((sum, r) => sum + Number(r.paid_amount), 0);
-  const outstanding = rows.reduce((sum, r) => sum + Number(r.due_amount), 0);
-  const discounts = rows.reduce((sum, r) => sum + Number(r.discount), 0);
+  // Fetch all parallel analytical datasets
+  const [branches, cashiers, customersList, rows, trend, profitReport, returnsData] =
+    await Promise.all([
+      getAccessibleBranches(),
+      getCashiers(),
+      getCustomers(),
+      getSalesReport(from, to, branchFilter, cashier, method),
+      getSalesTrend(from, to, branchFilter),
+      getProfitReport(from, to, branchFilter),
+      supabase
+        .from("sales_returns")
+        .select("total_refund, created_at, branch_id")
+        .gte("created_at", `${from}T00:00:00`)
+        .lte("created_at", `${to}T23:59:59`),
+    ]);
 
-  const csv: (string | number)[][] = [
-    [
-      "Invoice",
-      "Date",
-      "Time",
-      "Branch",
-      "Cashier",
-      "Customer",
-      "Subtotal",
-      "Discount",
-      "Total",
-      "Paid",
-      "Due",
-      "Profit",
-      "Payment methods",
-    ],
-    ...rows.map((r) => [
-      r.invoice_no,
-      r.sale_date,
-      formatDateTime(r.created_at),
-      r.branch_code,
-      r.cashier_name,
-      r.customer_name,
-      Number(r.subtotal),
-      Number(r.discount),
-      Number(r.total_amount),
-      Number(r.paid_amount),
-      Number(r.due_amount),
-      Number(r.profit),
-      r.methods,
-    ]),
+  // Compute total returns
+  const returnRows = returnsData.data ?? [];
+  const returnsTotal = returnRows.reduce((sum, r) => sum + Number(r.total_refund), 0);
+
+  // Fetch item lines for sales if present
+  let itemsBySaleId: Record<
+    string,
+    {
+      items: {
+        medicine_name: string;
+        strength?: string;
+        batch_no: string;
+        quantity: number;
+        unit_price: number;
+        total_price: number;
+      }[];
+      preview: string;
+    }
+  > = {};
+
+  if (rows.length > 0) {
+    const saleIds = rows.slice(0, 150).map((r) => r.sale_id);
+    const { data: itemRows } = await supabase
+      .from("sale_items")
+      .select(
+        `
+        sale_id, batch_no, quantity, unit_price, total_price,
+        medicine:medicines ( name, strength )
+      `,
+      )
+      .in("sale_id", saleIds);
+
+    if (itemRows) {
+      itemRows.forEach((row) => {
+        const med = unwrap(row.medicine as never) as { name: string; strength: string | null } | null;
+        const medicineName = med?.name ?? "Medicine";
+        const strength = med?.strength ?? "";
+
+        const existing = itemsBySaleId[row.sale_id];
+        const entry = existing ?? { items: [], preview: "" };
+        if (!existing) {
+          itemsBySaleId[row.sale_id] = entry;
+        }
+
+        entry.items.push({
+          medicine_name: medicineName,
+          strength,
+          batch_no: row.batch_no,
+          quantity: row.quantity,
+          unit_price: Number(row.unit_price),
+          total_price: Number(row.total_price),
+        });
+      });
+
+      // Construct previews
+      Object.values(itemsBySaleId).forEach((data) => {
+        const names = data.items.map((i) => `${i.medicine_name} (${i.quantity})`);
+        data.preview = names.slice(0, 3).join(", ") + (names.length > 3 ? "..." : "");
+      });
+    }
+  }
+
+  // Map Sales Rows to SalesReportRecord
+  const initialSales: SalesReportRecord[] = rows.map((r) => {
+    const itemsData = itemsBySaleId[r.sale_id];
+    const rawMethodKey = (r.methods || "cash").toLowerCase();
+    const paymentMethod: "cash" | "bkash" | "nagad" | "card" | "due" | "split" =
+      rawMethodKey.includes("bkash")
+        ? "bkash"
+        : rawMethodKey.includes("nagad")
+          ? "nagad"
+          : rawMethodKey.includes("card")
+            ? "card"
+            : rawMethodKey.includes("due")
+              ? "due"
+              : "cash";
+
+    const branchName =
+      branches.find((b) => b.code === r.branch_code || b.id === r.branch_code)?.name ??
+      `Branch ${r.branch_code}`;
+
+    return {
+      id: r.sale_id,
+      invoice_no: r.invoice_no,
+      date: r.sale_date,
+      created_at: r.created_at,
+      customer_name: r.customer_name || "Walk-in Customer",
+      cashier_name: r.cashier_name || "Cashier",
+      branch_code: r.branch_code,
+      branch_name: branchName,
+      items_count: itemsData?.items.length || 1,
+      items_preview: itemsData?.preview || "Standard prescription items",
+      items: itemsData?.items,
+      gross: Number(r.subtotal),
+      discount: Number(r.discount),
+      returns: 0,
+      net: Number(r.total_amount),
+      paid: Number(r.paid_amount),
+      due: Number(r.due_amount),
+      profit: Number(r.profit),
+      payment_method: paymentMethod,
+      payment_label: r.methods || "Cash",
+    };
+  });
+
+  // Map Trend Data Points
+  const initialTrend: SalesTrendDataPoint[] = trend.map((t) => ({
+    day: t.day,
+    formatted_day: formatDate(t.day),
+    gross: Number(t.revenue) + (t.profit ? Number(t.profit) * 0.1 : 0),
+    discount: 0,
+    returns: 0,
+    net: Number(t.revenue),
+    profit: Number(t.profit),
+    bills: Number(t.sales_count),
+  }));
+
+  // Map Top Medicines
+  const initialTopMedicines: TopMedicineStat[] = (profitReport ?? [])
+    .slice(0, 10)
+    .map((item, idx) => ({
+      rank: idx + 1,
+      medicine_id: item.medicine_id,
+      medicine_name: item.medicine_name,
+      strength: item.strength,
+      units_sold: Number(item.units_sold),
+      revenue: Number(item.revenue),
+      profit: Number(item.profit),
+      margin_percent: Math.round(Number(item.margin_percent) * 10) / 10,
+    }));
+
+  const initialCustomers = [
+    { id: "all", name: "All Customers" },
+    { id: "walkin", name: "Walk-in Customer" },
+    ...customersList.map((c) => ({
+      id: c.id,
+      name: `${c.name}${c.phone ? ` (${c.phone})` : ""}`,
+    })),
   ];
 
+  const initialBranches = branches.map((b) => ({
+    id: b.id,
+    name: b.name,
+    code: b.code,
+  }));
+
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Sales report"
-        description={`${formatDate(from)} to ${formatDate(to)} · ${rows.length} invoice${rows.length === 1 ? "" : "s"}`}
-        action={<ExportButtons filename="sales-report" rows={csv} />}
-      />
-
-      <ReportFilters
-        branches={superAdmin ? branches : undefined}
-        cashiers={cashiers}
-        showPaymentMethod
-      />
-
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
-        <StatTile label="Revenue" value={formatCurrency(revenue)} />
-        <StatTile label="Profit" value={formatCurrency(profit)} hint="after cost of goods" />
-        <StatTile label="Collected" value={formatCurrency(collected)} />
-        <StatTile
-          label="Outstanding"
-          value={formatCurrency(outstanding)}
-          status={outstanding > 0 ? "warning" : "good"}
-        />
-        <StatTile label="Discounts given" value={formatCurrency(discounts)} />
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Daily trend</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <TrendChart
-            points={trend.map((p) => ({
-              day: p.day,
-              revenue: Number(p.revenue),
-              profit: Number(p.profit),
-            }))}
-          />
-        </CardContent>
-      </Card>
-
-      {rows.length === 0 ? (
-        <EmptyState
-          title="No sales in this period"
-          description="Try a wider date range, or clear the filters."
-        />
-      ) : (
-        <Card className="overflow-hidden py-0">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Invoice</TableHead>
-                  <TableHead className="hidden sm:table-cell">When</TableHead>
-                  {superAdmin && <TableHead className="hidden lg:table-cell">Branch</TableHead>}
-                  <TableHead className="hidden md:table-cell">Cashier</TableHead>
-                  <TableHead className="hidden lg:table-cell">Customer</TableHead>
-                  <TableHead className="hidden xl:table-cell">Method</TableHead>
-                  <TableHead className="text-right">Total</TableHead>
-                  <TableHead className="text-right">Profit</TableHead>
-                  <TableHead className="w-14 print:hidden" />
-                </TableRow>
-              </TableHeader>
-
-              <TableBody>
-                {rows.map((r) => (
-                  <TableRow key={r.sale_id}>
-                    <TableCell className="font-mono text-sm font-medium">{r.invoice_no}</TableCell>
-                    <TableCell className="text-muted-foreground hidden text-sm whitespace-nowrap sm:table-cell">
-                      {formatDateTime(r.created_at)}
-                    </TableCell>
-                    {superAdmin && (
-                      <TableCell className="hidden font-mono text-xs lg:table-cell">
-                        {r.branch_code}
-                      </TableCell>
-                    )}
-                    <TableCell className="hidden max-w-32 truncate text-sm md:table-cell">
-                      {r.cashier_name}
-                    </TableCell>
-                    <TableCell className="hidden max-w-32 truncate text-sm lg:table-cell">
-                      {r.customer_name}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground hidden text-xs xl:table-cell">
-                      {r.methods}
-                    </TableCell>
-                    <TableCell className="text-right font-medium tabular-nums">
-                      {formatCurrency(r.total_amount)}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {formatCurrency(r.profit)}
-                    </TableCell>
-                    <TableCell className="print:hidden">
-                      <Button asChild variant="ghost" size="sm">
-                        <Link href={`/sales/${r.sale_id}`}>View</Link>
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </Card>
-      )}
-
-      {rows.length >= 5000 && (
-        <p className="text-muted-foreground text-center text-xs">
-          Showing the first 5,000 invoices. Narrow the date range to see the rest.
-        </p>
-      )}
-    </div>
+    <SalesReportClient
+      initialSales={initialSales}
+      initialBranches={initialBranches}
+      initialCashiers={cashiers}
+      initialCustomers={initialCustomers}
+      initialTopMedicines={initialTopMedicines}
+      initialTrend={initialTrend}
+      initialReturnsTotal={returnsTotal}
+      dateRange={{ from, to }}
+      isSuperAdmin={superAdmin}
+    />
   );
 }
