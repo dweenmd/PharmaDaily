@@ -16,6 +16,7 @@ import {
   Pill,
   Receipt,
   Settings,
+  ShieldCheck,
   ShoppingCart,
   Truck,
   Users,
@@ -193,6 +194,12 @@ const NAV_GROUPS: NavGroup[] = [
         title: "Staff",
         href: "/staff",
         icon: Users,
+        roles: ["super_admin", "branch_manager"],
+      },
+      {
+        title: "Role & Permissions",
+        href: "/roles",
+        icon: ShieldCheck,
         roles: ["super_admin", "branch_manager"],
       },
       {

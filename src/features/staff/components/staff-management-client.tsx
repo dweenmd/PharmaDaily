@@ -476,6 +476,18 @@ export function StaffManagementClient({
           <Button
             variant="outline"
             size="sm"
+            asChild
+            className="h-9 gap-1.5 text-xs font-semibold cursor-pointer border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 shadow-xs"
+          >
+            <Link href="/roles">
+              <ShieldCheck className="size-3.5 text-muted-foreground" />
+              <span>Role Permissions</span>
+            </Link>
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
             onClick={handleExportCsv}
             className="h-9 gap-1.5 text-xs font-semibold cursor-pointer border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 shadow-xs"
           >
