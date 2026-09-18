@@ -9,7 +9,7 @@ const TABS = [
   { href: "/reports", label: "Reports Center" },
   { href: "/reports/sales", label: "Sales" },
   { href: "/reports/profit", label: "Profit" },
-  { href: "/reports/stock", label: "Stock" },
+  { href: "/reports/stock", label: "Inventory" },
 ];
 
 export function ReportsNav() {
