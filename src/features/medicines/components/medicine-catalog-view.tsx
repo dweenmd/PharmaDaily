@@ -17,6 +17,7 @@ import {
   Download,
   Droplet,
   Edit3,
+  ExternalLink,
   Eye,
   FileWarning,
   Filter,
@@ -777,9 +778,12 @@ export function MedicineCatalogView({
                           <div className="flex items-center gap-2.5">
                             <MedicineThumbnail form={item.dosage_form} />
                             <div className="min-w-0">
-                              <p className="font-bold text-sm text-foreground group-hover:text-zinc-900 dark:group-hover:text-white truncate">
+                              <Link
+                                href={`/medicines/${item.id}`}
+                                className="font-bold text-sm text-foreground group-hover:text-zinc-900 dark:group-hover:text-white truncate hover:underline block"
+                              >
                                 {item.name}
-                              </p>
+                              </Link>
                               <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
                                 <span>{item.manufacturer || "General"}</span>
                                 {item.category_name && <span>· {item.category_name}</span>}
@@ -926,6 +930,12 @@ export function MedicineCatalogView({
                                   <Link href={`/stock?q=${encodeURIComponent(item.name)}`}>
                                     <Layers className="size-3.5 mr-2" />
                                     <span>View Stock Ledger</span>
+                                  </Link>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem asChild>
+                                  <Link href={`/medicines/${item.id}`}>
+                                    <ExternalLink className="size-3.5 mr-2" />
+                                    <span>Open Full Details Page</span>
                                   </Link>
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
@@ -1099,6 +1109,17 @@ export function MedicineCatalogView({
                   </Link>
                 </Button>
 
+                <Button
+                  asChild
+                  variant="outline"
+                  className="h-9 px-3 rounded-xl font-semibold border-zinc-200 dark:border-zinc-800 text-xs"
+                >
+                  <Link href={`/medicines/${viewedMedicine.id}`}>
+                    <ExternalLink className="size-3.5 mr-1" />
+                    <span>Details</span>
+                  </Link>
+                </Button>
+
                 {canEdit && (
                   <Button
                     asChild
@@ -1107,7 +1128,7 @@ export function MedicineCatalogView({
                   >
                     <Link href={`/medicines/${viewedMedicine.id}/edit`}>
                       <Edit3 className="size-3.5 mr-1" />
-                      <span>Edit Master</span>
+                      <span>Edit</span>
                     </Link>
                   </Button>
                 )}
