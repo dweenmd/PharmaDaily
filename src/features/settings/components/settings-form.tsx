@@ -94,7 +94,7 @@ export function SettingsForm({ values, branchId, branchName }: Props) {
                       </SelectContent>
                     </Select>
                   </div>
-                ) : (
+                ) : spec.type === "number" ? (
                   <div className="space-y-1.5">
                     <Label htmlFor={key} className="text-xs">
                       Value ({spec.unit})
@@ -105,6 +105,19 @@ export function SettingsForm({ values, branchId, branchName }: Props) {
                       onChange={(e) => setDraft((d) => ({ ...d, [key]: e.target.value }))}
                       inputMode="decimal"
                       className="w-32 text-right tabular-nums"
+                      disabled={isPending}
+                    />
+                  </div>
+                ) : (
+                  <div className="space-y-1.5">
+                    <Label htmlFor={key} className="text-xs">
+                      Value
+                    </Label>
+                    <Input
+                      id={key}
+                      value={draft[key] ?? ""}
+                      onChange={(e) => setDraft((d) => ({ ...d, [key]: e.target.value }))}
+                      className="w-64 text-xs"
                       disabled={isPending}
                     />
                   </div>

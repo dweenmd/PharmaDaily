@@ -55,13 +55,43 @@ export const EDITABLE_SETTINGS = {
       { value: "a4", label: "A4" },
     ],
   },
+  pharmacy_name: {
+    type: "text",
+    label: "Pharmacy Name",
+    description: "Official trading name printed on receipts and invoices.",
+  },
+  pharmacy_logo: {
+    type: "text",
+    label: "Pharmacy Logo URL",
+    description: "URL or data identifier of the pharmacy brand logo.",
+  },
+  pharmacy_phone: {
+    type: "text",
+    label: "Primary Phone",
+    description: "Customer service and helpline phone number.",
+  },
+  pharmacy_email: {
+    type: "text",
+    label: "Support Email",
+    description: "Billing and administrative correspondence email address.",
+  },
+  pharmacy_address: {
+    type: "text",
+    label: "Physical Address",
+    description: "Physical street address and premises location.",
+  },
+  pharmacy_license: {
+    type: "text",
+    label: "DGDA License Number",
+    description: "Official drug administration retail pharmacy license identifier.",
+  },
 } as const;
 
 export type SettingKey = keyof typeof EDITABLE_SETTINGS;
 
 const settingSchema = z.object({
-  key: z.enum(Object.keys(EDITABLE_SETTINGS) as [SettingKey, ...SettingKey[]]),
-  value: z.string().min(1),
+  key: z.string().min(1),
+  value: z.string(),
   branchId: z.string().uuid().nullable(),
 });
 
@@ -75,21 +105,24 @@ export async function saveSettingAction(
     return { ok: false, error: "That setting is not editable." };
   }
 
-  const spec = EDITABLE_SETTINGS[parsed.data.key];
+  const keyStr = parsed.data.key;
+  const spec = keyStr in EDITABLE_SETTINGS ? EDITABLE_SETTINGS[keyStr as SettingKey] : undefined;
 
-  if (spec.type === "number") {
-    const numeric = Number(parsed.data.value);
-    if (!Number.isFinite(numeric) || numeric < spec.min || numeric > spec.max) {
-      return {
-        ok: false,
-        error: `${spec.label} must be between ${spec.min} and ${spec.max} ${spec.unit}.`,
-      };
+  if (spec) {
+    if (spec.type === "number") {
+      const numeric = Number(parsed.data.value);
+      if (!Number.isFinite(numeric) || numeric < spec.min || numeric > spec.max) {
+        return {
+          ok: false,
+          error: `${spec.label} must be between ${spec.min} and ${spec.max} ${spec.unit}.`,
+        };
+      }
+    } else if ("options" in spec && Array.isArray(spec.options)) {
+      const valid = (spec.options as readonly { value: string }[]).some(
+        (o) => o.value === parsed.data.value,
+      );
+      if (!valid) return { ok: false, error: `${spec.label} is not a recognised option.` };
     }
-  } else {
-    const valid = (spec.options as readonly { value: string }[]).some(
-      (o) => o.value === parsed.data.value,
-    );
-    if (!valid) return { ok: false, error: `${spec.label} is not a recognised option.` };
   }
 
   const supabase = await createClient();
@@ -123,6 +156,52 @@ export async function saveSettingAction(
       return { ok: false, error: "Only a manager can change these settings." };
     }
     return { ok: false, error: "Could not save the setting." };
+  }
+
+  revalidatePath("/settings");
+  revalidatePath("/dashboard");
+  return { ok: true, data: undefined };
+}
+
+// ---------------------------------------------------------------------------
+
+/**
+ * Saves multiple settings in batch for a clean workspace submission.
+ */
+export async function saveSettingsBatchAction(
+  updates: Record<string, string>,
+  branchId: string | null,
+): Promise<ActionResult> {
+  const supabase = await createClient();
+
+  for (const [key, value] of Object.entries(updates)) {
+    const existingQuery = supabase.from("settings").select("id").eq("key", key);
+
+    const { data: existing } = branchId
+      ? await existingQuery.eq("branch_id", branchId).maybeSingle()
+      : await existingQuery.is("branch_id", null).maybeSingle();
+
+    const error = existing
+      ? (
+          await supabase
+            .from("settings")
+            .update({ value: String(value) })
+            .eq("id", existing.id)
+        ).error
+      : (
+          await supabase.from("settings").insert({
+            key,
+            value: String(value),
+            branch_id: branchId,
+          })
+        ).error;
+
+    if (error) {
+      if (error.code === "42501") {
+        return { ok: false, error: "Only a manager or administrator can change settings." };
+      }
+      return { ok: false, error: `Could not save setting '${key}'.` };
+    }
   }
 
   revalidatePath("/settings");
