@@ -103,13 +103,52 @@ export function TransferForm({ branches, stock, fromBranchId, canChooseSource }:
         </Alert>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Route</CardTitle>
+      {/* Workflow Indicator: Requested → Approved → In Transit → Received */}
+      <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-2xs dark:border-zinc-800 dark:bg-zinc-950">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-3">
+          Transfer Lifecycle Workflow
+        </span>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+          <div className="flex items-center gap-2 p-2 rounded-lg bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 font-medium">
+            <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-zinc-700 text-zinc-200 dark:bg-zinc-300 dark:text-zinc-900">
+              01
+            </span>
+            <span>Requested</span>
+          </div>
+          <div className="flex items-center gap-2 p-2 rounded-lg bg-zinc-50 border border-zinc-200 text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
+            <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-400">
+              02
+            </span>
+            <span>Approved</span>
+          </div>
+          <div className="flex items-center gap-2 p-2 rounded-lg bg-zinc-50 border border-zinc-200 text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
+            <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-400">
+              03
+            </span>
+            <span>In Transit</span>
+          </div>
+          <div className="flex items-center gap-2 p-2 rounded-lg bg-zinc-50 border border-zinc-200 text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
+            <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-400">
+              04
+            </span>
+            <span>Received</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Visual Branch Routing: Source Branch ↓ Destination Branch */}
+      <Card className="border-zinc-200 shadow-2xs dark:border-zinc-800">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+            Multi-Branch Route
+          </CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-5 sm:grid-cols-[1fr_auto_1fr] sm:items-end">
+        <CardContent className="space-y-3">
+          {/* Source Branch */}
           <Field data-invalid={!!errors.from_branch_id}>
-            <FieldLabel htmlFor="from_branch_id">From</FieldLabel>
+            <FieldLabel htmlFor="from_branch_id" className="text-xs font-semibold">
+              Source Branch (Sending) <span className="text-destructive">*</span>
+            </FieldLabel>
             {canChooseSource ? (
               <Controller
                 control={form.control}
@@ -119,20 +158,18 @@ export function TransferForm({ branches, stock, fromBranchId, canChooseSource }:
                     value={field.value}
                     onValueChange={(v) => {
                       field.onChange(v);
-                      // Batches belong to the old source, so the lines are no
-                      // longer valid once the source changes.
                       form.setValue("items", [{ source_stock_id: "", quantity: 1 }]);
                       form.setValue("to_branch_id", "");
                     }}
                     disabled={isPending}
                   >
-                    <SelectTrigger id="from_branch_id">
-                      <SelectValue placeholder="Sending branch" />
+                    <SelectTrigger id="from_branch_id" className="h-9">
+                      <SelectValue placeholder="Select sending branch..." />
                     </SelectTrigger>
                     <SelectContent>
                       {branches.map((b) => (
                         <SelectItem key={b.id} value={b.id}>
-                          {b.name}
+                          {b.name} ({b.code})
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -140,29 +177,37 @@ export function TransferForm({ branches, stock, fromBranchId, canChooseSource }:
                 )}
               />
             ) : (
-              <div className="flex h-9 items-center rounded-md border px-3 text-sm">
+              <div className="flex h-9 items-center rounded-md border px-3 text-xs font-medium bg-zinc-50 dark:bg-zinc-900">
                 {branches.find((b) => b.id === fromBranchId)?.name ?? "Your branch"}
               </div>
             )}
             {errors.from_branch_id && <FieldError>{errors.from_branch_id.message}</FieldError>}
           </Field>
 
-          <ArrowRight className="text-muted-foreground mx-auto mb-2.5 hidden size-4 sm:block" />
+          {/* Prominent Down Arrow ↓ */}
+          <div className="flex items-center justify-center py-1">
+            <div className="flex size-7 items-center justify-center rounded-full bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 shadow-2xs">
+              <span className="text-sm font-bold">↓</span>
+            </div>
+          </div>
 
+          {/* Destination Branch */}
           <Field data-invalid={!!errors.to_branch_id}>
-            <FieldLabel htmlFor="to_branch_id">To</FieldLabel>
+            <FieldLabel htmlFor="to_branch_id" className="text-xs font-semibold">
+              Destination Branch (Receiving) <span className="text-destructive">*</span>
+            </FieldLabel>
             <Controller
               control={form.control}
               name="to_branch_id"
               render={({ field }) => (
                 <Select value={field.value} onValueChange={field.onChange} disabled={isPending}>
-                  <SelectTrigger id="to_branch_id" aria-invalid={!!errors.to_branch_id}>
-                    <SelectValue placeholder="Receiving branch" />
+                  <SelectTrigger id="to_branch_id" aria-invalid={!!errors.to_branch_id} className="h-9">
+                    <SelectValue placeholder="Select destination branch..." />
                   </SelectTrigger>
                   <SelectContent>
                     {destinations.map((b) => (
                       <SelectItem key={b.id} value={b.id}>
-                        {b.name}
+                        {b.name} ({b.code})
                       </SelectItem>
                     ))}
                   </SelectContent>

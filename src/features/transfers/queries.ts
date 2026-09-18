@@ -18,8 +18,10 @@ export type TransferListRow = {
   to_branch_id: string;
   from_branch: { id: string; name: string; code: string } | null;
   to_branch: { id: string; name: string; code: string } | null;
+  requested_by: { id: string; name: string } | null;
   item_count: number;
   total_units: number;
+  items_summary?: string;
 };
 
 function unwrap<T>(value: T | T[] | null): T | null {
@@ -44,7 +46,8 @@ export const getTransfers = cache(async (): Promise<TransferListRow[]> => {
         notes, rejection_reason, from_branch_id, to_branch_id,
         from_branch:branches!stock_transfers_from_branch_id_fkey ( id, name, code ),
         to_branch:branches!stock_transfers_to_branch_id_fkey ( id, name, code ),
-        items:stock_transfer_items ( id, quantity )
+        requested_by:profiles!stock_transfers_transferred_by_fkey ( id, name ),
+        items:stock_transfer_items ( id, quantity, batch_no, medicine:medicines ( name ) )
       `,
     )
     .order("created_at", { ascending: false })
@@ -53,13 +56,33 @@ export const getTransfers = cache(async (): Promise<TransferListRow[]> => {
   if (error) return [];
 
   return (data ?? []).map((row) => {
-    const items = (row.items ?? []) as { id: string; quantity: number }[];
+    const items = (row.items ?? []) as {
+      id: string;
+      quantity: number;
+      batch_no?: string;
+      medicine?: { name: string } | { name: string }[];
+    }[];
+
+    const medNames = items
+      .map((i) => {
+        const med = unwrap(i.medicine as never) as { name: string } | null;
+        return med?.name;
+      })
+      .filter(Boolean) as string[];
+
+    const itemsSummary =
+      medNames.length > 0
+        ? medNames.slice(0, 2).join(", ") + (medNames.length > 2 ? ` +${medNames.length - 2}` : "")
+        : `${items.length} item${items.length === 1 ? "" : "s"}`;
+
     return {
       ...row,
       from_branch: unwrap(row.from_branch as never),
       to_branch: unwrap(row.to_branch as never),
+      requested_by: unwrap(row.requested_by as never),
       item_count: items.length,
       total_units: items.reduce((sum, i) => sum + i.quantity, 0),
+      items_summary: itemsSummary,
     };
   }) as TransferListRow[];
 });
