@@ -29,7 +29,7 @@ import { Spinner } from "@/components/ui/spinner";
  * wants a customer on file before they ever buy anything: a walk-in signing
  * up, or catching up a paper register.
  */
-export function AddCustomerDialog() {
+export function AddCustomerDialog({ trigger }: { trigger?: React.ReactNode } = {}) {
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const [name, setName] = React.useState("");
@@ -76,10 +76,12 @@ export function AddCustomerDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>
-          <Plus className="size-4" />
-          Add customer
-        </Button>
+        {trigger ?? (
+          <Button>
+            <Plus className="size-4" />
+            Add customer
+          </Button>
+        )}
       </DialogTrigger>
 
       <DialogContent className="sm:max-w-md">

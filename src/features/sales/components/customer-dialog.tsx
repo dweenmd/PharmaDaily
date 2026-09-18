@@ -26,6 +26,8 @@ export type PosCustomer = {
   phone: string | null;
   email: string | null;
   due_amount: number;
+  last_visit?: string | null;
+  purchase_count?: number;
 };
 
 type Props = {

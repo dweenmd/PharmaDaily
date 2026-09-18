@@ -151,3 +151,13 @@ export async function createCustomerAction(
   revalidatePath("/customers");
   return { ok: true, data: { ...data, due_amount: Number(data.due_amount) } };
 }
+
+/** Fetches full sale details for the Sale Detail drawer. */
+export async function getSaleDetailAction(id: string) {
+  const { getSaleById } = await import("@/features/sales/queries");
+  const sale = await getSaleById(id);
+  if (!sale) {
+    return { ok: false, error: "Sale not found" } as const;
+  }
+  return { ok: true, data: sale } as const;
+}

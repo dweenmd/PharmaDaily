@@ -132,9 +132,9 @@ export function LoginForm() {
         </Alert>
       )}
 
-      <FieldGroup>
+      <FieldGroup className="space-y-3.5">
         <Field data-invalid={!!form.formState.errors.email}>
-          <FieldLabel htmlFor="email">Email</FieldLabel>
+          <FieldLabel htmlFor="email" className="text-xs font-semibold text-foreground">Email / Phone</FieldLabel>
           <Input
             id="email"
             type="email"
@@ -144,6 +144,7 @@ export function LoginForm() {
             placeholder="you@pharmacy.com"
             aria-invalid={!!form.formState.errors.email}
             disabled={isPending}
+            className="h-10 text-sm rounded-xl bg-background border-zinc-200 dark:border-zinc-800 focus-visible:ring-1 focus-visible:ring-zinc-400"
             {...form.register("email")}
           />
           {form.formState.errors.email && (
@@ -152,14 +153,14 @@ export function LoginForm() {
         </Field>
 
         <Field data-invalid={!!form.formState.errors.password}>
-          <FieldLabel htmlFor="password">Password</FieldLabel>
+          <FieldLabel htmlFor="password" className="text-xs font-semibold text-foreground">Password</FieldLabel>
           <div className="relative">
             <Input
               id="password"
               type={showPassword ? "text" : "password"}
               autoComplete="current-password"
               placeholder="••••••••"
-              className="pr-10"
+              className="h-10 pr-10 text-sm rounded-xl bg-background border-zinc-200 dark:border-zinc-800 focus-visible:ring-1 focus-visible:ring-zinc-400"
               aria-invalid={!!form.formState.errors.password}
               disabled={isPending}
               {...form.register("password")}
@@ -167,7 +168,7 @@ export function LoginForm() {
             <button
               type="button"
               onClick={() => setShowPassword((v) => !v)}
-              className="text-muted-foreground hover:text-foreground focus-visible:ring-ring absolute inset-y-0 right-0 flex w-10 items-center justify-center rounded-r-md focus-visible:ring-2 focus-visible:outline-none"
+              className="text-muted-foreground hover:text-foreground absolute inset-y-0 right-0 flex w-10 items-center justify-center rounded-r-xl"
               aria-label={showPassword ? "Hide password" : "Show password"}
               tabIndex={-1}
             >
@@ -178,22 +179,44 @@ export function LoginForm() {
             <FieldError>{form.formState.errors.password.message}</FieldError>
           )}
         </Field>
+
+        {/* Remember me & Forgot password */}
+        <div className="flex items-center justify-between pt-0.5">
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              defaultChecked
+              className="size-4 rounded border-zinc-300 dark:border-zinc-700 text-zinc-900 focus:ring-zinc-500 accent-zinc-900 cursor-pointer"
+            />
+            <span className="text-xs font-medium text-foreground">Remember me</span>
+          </label>
+
+          <button
+            type="button"
+            onClick={() =>
+              alert("Password Reset: Please contact your Pharmacy Super Admin or Branch Manager to issue a secure password reset link for your account.")
+            }
+            className="text-xs font-semibold text-muted-foreground hover:text-foreground hover:underline transition-colors"
+          >
+            Forgot password?
+          </button>
+        </div>
       </FieldGroup>
 
-      <Button type="submit" className="w-full" disabled={isPending}>
+      <Button
+        type="submit"
+        className="w-full h-11 rounded-xl text-sm font-bold bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200 shadow-2xs transition-all"
+        disabled={isPending}
+      >
         {isPending ? (
           <>
             <Spinner />
             Signing in…
           </>
         ) : (
-          "Sign in"
+          "Sign In"
         )}
       </Button>
-
-      <p className="text-muted-foreground text-center text-xs">
-        Accounts are created by an administrator. There is no public sign-up.
-      </p>
     </form>
   );
 }

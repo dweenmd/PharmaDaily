@@ -56,10 +56,14 @@ export function UserMenu({ name, role, branchName }: Props) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="rounded-full" aria-label="Account menu">
-          <Avatar className="size-8">
-            <AvatarFallback className="text-xs font-medium">{initialsOf(name)}</AvatarFallback>
+        <Button variant="ghost" className="h-9 px-2 rounded-xl flex items-center gap-2 hover:bg-zinc-100 dark:hover:bg-zinc-800" aria-label="Account menu">
+          <Avatar className="size-7 border border-zinc-200 dark:border-zinc-800">
+            <AvatarFallback className="text-[11px] font-semibold bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900">{initialsOf(name)}</AvatarFallback>
           </Avatar>
+          <div className="hidden lg:flex flex-col text-left leading-none">
+            <span className="text-xs font-semibold text-foreground truncate max-w-[120px]">{name}</span>
+            <span className="text-[10px] text-muted-foreground mt-0.5">{ROLE_LABELS[role] ?? "Staff"}</span>
+          </div>
         </Button>
       </DropdownMenuTrigger>
 

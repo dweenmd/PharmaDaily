@@ -123,6 +123,7 @@ export type SaleListRow = {
   customer: { id: string; name: string; phone: string | null; email: string | null } | null;
   cashier: { id: string; name: string } | null;
   branch: { id: string; name: string; code: string } | null;
+  payments?: { method: string; amount: number }[];
 };
 
 export const getSales = cache(async (limit = 200): Promise<SaleListRow[]> => {
@@ -136,7 +137,8 @@ export const getSales = cache(async (limit = 200): Promise<SaleListRow[]> => {
         total_amount, paid_amount, due_amount, branch_id,
         customer:customers ( id, name, phone, email ),
         cashier:profiles ( id, name ),
-        branch:branches ( id, name, code )
+        branch:branches ( id, name, code ),
+        payments:payments ( method, amount )
       `,
     )
     .is("deleted_at", null)
@@ -150,6 +152,7 @@ export const getSales = cache(async (limit = 200): Promise<SaleListRow[]> => {
     customer: unwrap(row.customer as never),
     cashier: unwrap(row.cashier as never),
     branch: unwrap(row.branch as never),
+    payments: Array.isArray(row.payments) ? row.payments : [],
   })) as SaleListRow[];
 });
 

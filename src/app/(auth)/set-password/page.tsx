@@ -154,105 +154,113 @@ export default function SetPasswordPage() {
     });
   }
 
-  if (stage === "checking") {
-    return (
-      <Card>
-        <CardContent className="flex items-center justify-center gap-2 py-10 text-sm">
-          <Spinner />
-          Checking your link…
-        </CardContent>
-      </Card>
-    );
-  }
+  const cardContent = (() => {
+    if (stage === "checking") {
+      return (
+        <Card>
+          <CardContent className="flex items-center justify-center gap-2 py-10 text-sm">
+            <Spinner />
+            Checking your link…
+          </CardContent>
+        </Card>
+      );
+    }
 
-  if (stage === "already-set") {
+    if (stage === "already-set") {
+      return (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-xl">Your password is already set</CardTitle>
+            <CardDescription>
+              This link is for setting a password the first time. To change an existing one, use
+              &quot;Change password&quot; from your account menu instead — that asks for your current
+              password too, which this page deliberately does not.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button asChild className="w-full">
+              <a href="/dashboard">Go to dashboard</a>
+            </Button>
+          </CardContent>
+        </Card>
+      );
+    }
+
+    if (stage === "invalid") {
+      return (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-xl">This link isn&apos;t working</CardTitle>
+            <CardDescription>
+              It may have expired or already been used. Ask whoever set up your account to send a new
+              one, or sign in if you already have a password.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button asChild className="w-full">
+              <a href="/login">Go to sign in</a>
+            </Button>
+          </CardContent>
+        </Card>
+      );
+    }
+
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-xl">Your password is already set</CardTitle>
-          <CardDescription>
-            This link is for setting a password the first time. To change an existing one, use
-            &quot;Change password&quot; from your account menu instead — that asks for your current
-            password too, which this page deliberately does not.
-          </CardDescription>
+          <CardTitle className="text-xl">Set your password</CardTitle>
+          <CardDescription>Choose a password only you know, then you&apos;re in.</CardDescription>
         </CardHeader>
-        <CardContent>
-          <Button asChild className="w-full">
-            <a href="/dashboard">Go to dashboard</a>
+        <CardContent className="space-y-4">
+          {error && (
+            <Alert variant="destructive" role="alert">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+
+          <div className="space-y-2">
+            <Label htmlFor="new-password">New password</Label>
+            <Input
+              id="new-password"
+              type="password"
+              autoComplete="new-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoFocus
+              disabled={isPending}
+            />
+            <p className="text-muted-foreground text-xs">At least 12 characters.</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="confirm-password">Repeat password</Label>
+            <Input
+              id="confirm-password"
+              type="password"
+              autoComplete="new-password"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              disabled={isPending}
+              onKeyDown={(e) => e.key === "Enter" && submit()}
+            />
+          </div>
+
+          <Button
+            className="w-full"
+            onClick={submit}
+            disabled={isPending || password === "" || confirm === ""}
+          >
+            {isPending && <Spinner />}
+            Set password and continue
           </Button>
         </CardContent>
       </Card>
     );
-  }
-
-  if (stage === "invalid") {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-xl">This link isn&apos;t working</CardTitle>
-          <CardDescription>
-            It may have expired or already been used. Ask whoever set up your account to send a new
-            one, or sign in if you already have a password.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button asChild className="w-full">
-            <a href="/login">Go to sign in</a>
-          </Button>
-        </CardContent>
-      </Card>
-    );
-  }
+  })();
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-xl">Set your password</CardTitle>
-        <CardDescription>Choose a password only you know, then you&apos;re in.</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {error && (
-          <Alert variant="destructive" role="alert">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
-
-        <div className="space-y-2">
-          <Label htmlFor="new-password">New password</Label>
-          <Input
-            id="new-password"
-            type="password"
-            autoComplete="new-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            autoFocus
-            disabled={isPending}
-          />
-          <p className="text-muted-foreground text-xs">At least 12 characters.</p>
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="confirm-password">Repeat password</Label>
-          <Input
-            id="confirm-password"
-            type="password"
-            autoComplete="new-password"
-            value={confirm}
-            onChange={(e) => setConfirm(e.target.value)}
-            disabled={isPending}
-            onKeyDown={(e) => e.key === "Enter" && submit()}
-          />
-        </div>
-
-        <Button
-          className="w-full"
-          onClick={submit}
-          disabled={isPending || password === "" || confirm === ""}
-        >
-          {isPending && <Spinner />}
-          Set password and continue
-        </Button>
-      </CardContent>
-    </Card>
+    <div className="flex min-h-screen items-center justify-center p-4">
+      <div className="w-full max-w-sm">{cardContent}</div>
+    </div>
   );
 }

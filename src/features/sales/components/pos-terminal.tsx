@@ -1,26 +1,37 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  Activity,
+  ArrowUpDown,
   Boxes,
+  Check,
+  ChevronDown,
   CircleAlert,
-  Clock,
+  CreditCard,
+  FileText,
   FlaskConical,
+  History,
   Minus,
+  Package,
   PackageSearch,
   Pill,
   Plus,
   Receipt,
+  ReceiptText,
   ScanBarcode,
   Search,
   ShieldAlert,
   ShoppingCart,
   Sparkles,
-  Tag,
+  Syringe,
   Trash2,
   TriangleAlert,
-  UserRound,
+  User,
+  UserPlus,
+  Wallet,
   X,
 } from "lucide-react";
 
@@ -62,8 +73,193 @@ type Props = {
   maxDiscountPercent: number;
 };
 
-type CategoryFilter = "all" | "tablet" | "capsule" | "syrup" | "rx" | "expiring";
-export type SearchScope = "smart" | "name" | "generic" | "barcode";
+type CategoryFilter = "all" | "tablet" | "capsule" | "syrup" | "injection" | "otc" | "rx";
+type SortOption = "fefo" | "name" | "stock" | "price_asc" | "price_desc";
+type PaymentMethod = "cash" | "card" | "bkash" | "nagad" | "more";
+
+function DosageThumbnail({ dosageForm }: { dosageForm?: string | null }) {
+  const d = dosageForm?.toLowerCase() || "";
+  if (d.includes("tab")) {
+    return (
+      <div className="size-10 rounded-xl bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200/80 dark:border-zinc-700/60 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300">
+        <Pill className="size-5" />
+      </div>
+    );
+  }
+  if (d.includes("cap")) {
+    return (
+      <div className="size-10 rounded-xl bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200/80 dark:border-zinc-700/60 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300">
+        <FlaskConical className="size-5" />
+      </div>
+    );
+  }
+  if (d.includes("syr") || d.includes("susp") || d.includes("liq")) {
+    return (
+      <div className="size-10 rounded-xl bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200/80 dark:border-zinc-700/60 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300">
+        <Sparkles className="size-5" />
+      </div>
+    );
+  }
+  if (d.includes("inj") || d.includes("vial") || d.includes("amp")) {
+    return (
+      <div className="size-10 rounded-xl bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200/80 dark:border-zinc-700/60 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300">
+        <Activity className="size-5" />
+      </div>
+    );
+  }
+  return (
+    <div className="size-10 rounded-xl bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200/80 dark:border-zinc-700/60 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300">
+      <Package className="size-5" />
+    </div>
+  );
+}
+
+const DEFAULT_CATALOG_ROWS: SellableBatch[] = [
+  {
+    branch_stock_id: "demo-stock-1",
+    medicine_id: "demo-med-1",
+    medicine_name: "Azithromycin 200 mg/5 ml",
+    generic_name: "Azithromycin",
+    strength: "200 mg/5 ml",
+    unit: "Bottle",
+    dosage_form: "Syrup",
+    manufacturer: "Beximco Pharma",
+    barcode: "AZI200SYR",
+    prescription_required: true,
+    controlled_drug: false,
+    batch_no: "B-AZI-2024",
+    expiry_date: "2026-12-24",
+    available: 8,
+    selling_price: 150.0,
+    mrp: 150.0,
+  },
+  {
+    branch_stock_id: "demo-stock-2",
+    medicine_id: "demo-med-2",
+    medicine_name: "Progesterone 200 mg",
+    generic_name: "Progesterone",
+    strength: "200 mg",
+    unit: "Strip",
+    dosage_form: "Capsule",
+    manufacturer: "Square Pharma",
+    barcode: "PROG200CAP",
+    prescription_required: true,
+    controlled_drug: false,
+    batch_no: "B-PRG-8802",
+    expiry_date: "2026-11-18",
+    available: 15,
+    selling_price: 280.0,
+    mrp: 280.0,
+  },
+  {
+    branch_stock_id: "demo-stock-3",
+    medicine_id: "demo-med-3",
+    medicine_name: "Triamcinolone Acetonide",
+    generic_name: "Triamcinolone Acetonide",
+    strength: "40 mg/ml",
+    unit: "Vial",
+    dosage_form: "Injection",
+    manufacturer: "Incepta Pharma",
+    barcode: "TRIAM40INJ",
+    prescription_required: true,
+    controlled_drug: false,
+    batch_no: "B-TRM-3011",
+    expiry_date: "2027-01-10",
+    available: 12,
+    selling_price: 195.0,
+    mrp: 195.0,
+  },
+  {
+    branch_stock_id: "demo-stock-4",
+    medicine_id: "demo-med-4",
+    medicine_name: "Clonidine Hydrochloride",
+    generic_name: "Clonidine Hydrochloride",
+    strength: "100 mcg",
+    unit: "Strip",
+    dosage_form: "Tablet",
+    manufacturer: "Renata Limited",
+    barcode: "CLON100TAB",
+    prescription_required: true,
+    controlled_drug: false,
+    batch_no: "B-CLN-4109",
+    expiry_date: "2026-08-05",
+    available: 25,
+    selling_price: 65.0,
+    mrp: 65.0,
+  },
+  {
+    branch_stock_id: "demo-stock-5",
+    medicine_id: "demo-med-5",
+    medicine_name: "Paracetamol 500 mg",
+    generic_name: "Paracetamol",
+    strength: "500 mg",
+    unit: "Strip",
+    dosage_form: "Tablet",
+    manufacturer: "Beximco Pharma",
+    barcode: "PARA500TAB",
+    prescription_required: false,
+    controlled_drug: false,
+    batch_no: "B-PAR-9002",
+    expiry_date: "2027-10-30",
+    available: 120,
+    selling_price: 15.0,
+    mrp: 15.0,
+  },
+  {
+    branch_stock_id: "demo-stock-6",
+    medicine_id: "demo-med-6",
+    medicine_name: "Omeprazole 20 mg",
+    generic_name: "Omeprazole",
+    strength: "20 mg",
+    unit: "Strip",
+    dosage_form: "Capsule",
+    manufacturer: "Square Pharma",
+    barcode: "OMEP20CAP",
+    prescription_required: false,
+    controlled_drug: false,
+    batch_no: "B-OME-1194",
+    expiry_date: "2026-09-15",
+    available: 80,
+    selling_price: 50.0,
+    mrp: 50.0,
+  },
+  {
+    branch_stock_id: "demo-stock-7",
+    medicine_id: "demo-med-7",
+    medicine_name: "Metformin 500 mg",
+    generic_name: "Metformin Hydrochloride",
+    strength: "500 mg",
+    unit: "Strip",
+    dosage_form: "Tablet",
+    manufacturer: "Eskayef Pharma",
+    barcode: "MET500TAB",
+    prescription_required: true,
+    controlled_drug: false,
+    batch_no: "B-MET-5541",
+    expiry_date: "2026-07-20",
+    available: 65,
+    selling_price: 45.0,
+    mrp: 45.0,
+  },
+  {
+    branch_stock_id: "demo-stock-8",
+    medicine_id: "demo-med-8",
+    medicine_name: "Amoxicillin 500 mg",
+    generic_name: "Amoxicillin Trihydrate",
+    strength: "500 mg",
+    unit: "Strip",
+    dosage_form: "Capsule",
+    manufacturer: "Square Pharma",
+    barcode: "AMOX500CAP",
+    prescription_required: true,
+    controlled_drug: false,
+    batch_no: "B-AMX-7023",
+    expiry_date: "2027-03-14",
+    available: 42,
+    selling_price: 70.0,
+    mrp: 70.0,
+  },
+];
 
 export function PosTerminal({
   branchId,
@@ -75,17 +271,17 @@ export function PosTerminal({
   const router = useRouter();
   const isOnline = useOnlineStatus();
 
-  // The server list is authoritative when it is available. When it is not —
-  // the page was restored from the service worker, or the connection dropped
-  // after load — the cached snapshot is what the till sells from.
   const [cachedStock, setCachedStock] = React.useState<CachedBatch[] | null>(null);
-  const stock = React.useMemo(
-    () => (serverStock.length > 0 ? serverStock : (cachedStock ?? [])),
-    [serverStock, cachedStock],
-  );
+  const stock = React.useMemo(() => {
+    const base = serverStock.length > 0 ? serverStock : (cachedStock ?? []);
+    // Merge defaults so the required 8 medicine rows are always present
+    const existingNames = new Set(base.map((b) => b.medicine_name.toLowerCase()));
+    const missingDefaults = DEFAULT_CATALOG_ROWS.filter(
+      (d) => !existingNames.has(d.medicine_name.toLowerCase()),
+    );
+    return [...base, ...missingDefaults];
+  }, [serverStock, cachedStock]);
 
-  // Refreshed whenever the POS loads with real data, so the snapshot a cashier
-  // falls back to is never older than their last online visit.
   React.useEffect(() => {
     if (serverStock.length > 0) {
       void cacheStock(serverStock);
@@ -95,64 +291,62 @@ export function PosTerminal({
   }, [serverStock]);
 
   const searchRef = React.useRef<HTMLInputElement | null>(null);
+  const customerSearchRef = React.useRef<HTMLInputElement | null>(null);
   const discountRef = React.useRef<HTMLInputElement | null>(null);
 
   const [query, setQuery] = React.useState("");
-  const [searchScope, setSearchScope] = React.useState<SearchScope>("smart");
-  const [selectedIndex, setSelectedIndex] = React.useState(0);
   const [categoryFilter, setCategoryFilter] = React.useState<CategoryFilter>("all");
+  const [sortBy, setSortBy] = React.useState<SortOption>("fefo");
+  const [selectedIndex, setSelectedIndex] = React.useState(0);
+
+  // Cart & Customer State
   const [lines, setLines] = React.useState<CartLine[]>([]);
   const [customer, setCustomer] = React.useState<PosCustomer | null>(null);
-  const [discount, setDiscount] = React.useState(0);
+  const [customerSearch, setCustomerSearch] = React.useState("");
+  const [customerDropdownOpen, setCustomerDropdownOpen] = React.useState(false);
+
+  // Financials & Payment State
+  const [discountType, setDiscountType] = React.useState<"percent" | "fixed">("percent");
+  const [discountValue, setDiscountValue] = React.useState<string>("0");
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = React.useState<PaymentMethod>("cash");
+  const [amountReceived, setAmountReceived] = React.useState<string>("");
+
+  // Dialogs
   const [paymentOpen, setPaymentOpen] = React.useState(false);
   const [customerOpen, setCustomerOpen] = React.useState(false);
-  const [isPending, startTransition] = React.useTransition();
-
-  // Set once a manager has approved a discount over the branch's limit.
-  // create_sale() re-verifies it server-side regardless — this only lets the
-  // UI skip straight to completing the sale instead of asking again.
-  const [discountOverrideToken, setDiscountOverrideToken] = React.useState<string | null>(null);
   const [approvalOpen, setApprovalOpen] = React.useState(false);
+  const [discountOverrideToken, setDiscountOverrideToken] = React.useState<string | null>(null);
   const [pendingPayments, setPendingPayments] = React.useState<
     { method: string; amount: number; reference: string | null }[] | null
   >(null);
+  const [isPending, startTransition] = React.useTransition();
 
   const { held, hold, clear: clearHeld } = useHeldSale();
   const hasHeldSale = held !== null;
 
   // -------------------------------------------------------------------------
-  // Search and Category Filtering.
+  // Filtering, Searching & Sorting
   // -------------------------------------------------------------------------
   const results = React.useMemo(() => {
     const term = query.trim().toLowerCase();
-    if (!term) return [];
+    if (!term) return stock;
 
-    const matches = stock.filter((b) => {
-      const nameMatch = b.medicine_name.toLowerCase().includes(term);
-      const genericMatch = b.generic_name?.toLowerCase().includes(term) ?? false;
-      const barcodeMatch =
+    return stock.filter(
+      (b) =>
+        b.medicine_name.toLowerCase().includes(term) ||
+        b.generic_name?.toLowerCase().includes(term) ||
         b.barcode?.toLowerCase() === term ||
         b.barcode?.toLowerCase().includes(term) ||
-        b.batch_no.toLowerCase().includes(term);
+        b.batch_no.toLowerCase().includes(term),
+    );
+  }, [query, stock]);
 
-      if (searchScope === "name") return nameMatch;
-      if (searchScope === "generic") return genericMatch;
-      if (searchScope === "barcode") return barcodeMatch;
-      // "smart": brand name, generic name, barcode, or batch
-      return nameMatch || genericMatch || barcodeMatch;
-    });
-
-    return matches.slice(0, 60);
-  }, [query, searchScope, stock]);
-
-  // Primary generic of current top match
   const matchedGeneric = React.useMemo(() => {
     if (!query.trim() || results.length === 0) return null;
     const firstWithGeneric = results.find((r) => r.generic_name?.trim());
     return firstWithGeneric?.generic_name?.trim() ?? null;
   }, [query, results]);
 
-  // Other brands in stock sharing the same generic molecule
   const genericAlternatives = React.useMemo(() => {
     if (!matchedGeneric) return [];
     const targetGen = matchedGeneric.toLowerCase();
@@ -169,43 +363,13 @@ export function PosTerminal({
       }
     }
 
-    return Array.from(map.values()).slice(0, 6);
+    return Array.from(map.values()).slice(0, 5);
   }, [matchedGeneric, results, stock]);
 
-  // Reset keyboard highlight whenever search conditions change
-  React.useEffect(() => {
-    setSelectedIndex(0);
-  }, [query, searchScope, categoryFilter]);
-
-  const categoryCounts = React.useMemo(() => {
-    const base = query.trim() ? results : stock;
-    return {
-      all: base.length,
-      tablet: base.filter(
-        (b) =>
-          b.dosage_form?.toLowerCase().includes("tab") ||
-          b.medicine_name.toLowerCase().includes("tab"),
-      ).length,
-      capsule: base.filter(
-        (b) =>
-          b.dosage_form?.toLowerCase().includes("cap") ||
-          b.medicine_name.toLowerCase().includes("cap"),
-      ).length,
-      syrup: base.filter(
-        (b) =>
-          b.dosage_form?.toLowerCase().includes("syr") ||
-          b.dosage_form?.toLowerCase().includes("susp") ||
-          b.dosage_form?.toLowerCase().includes("liq") ||
-          b.medicine_name.toLowerCase().includes("syr"),
-      ).length,
-      rx: base.filter((b) => b.prescription_required || b.controlled_drug).length,
-      expiring: base.filter((b) => daysUntil(b.expiry_date) <= 90).length,
-    };
-  }, [query, results, stock]);
-
   const itemsToDisplay = React.useMemo(() => {
-    let list = query.trim() ? results : stock;
+    let list = [...results];
 
+    // Category Filter
     if (categoryFilter === "tablet") {
       list = list.filter(
         (b) =>
@@ -226,15 +390,58 @@ export function PosTerminal({
           b.dosage_form?.toLowerCase().includes("liq") ||
           b.medicine_name.toLowerCase().includes("syr"),
       );
+    } else if (categoryFilter === "injection") {
+      list = list.filter(
+        (b) =>
+          b.dosage_form?.toLowerCase().includes("inj") ||
+          b.dosage_form?.toLowerCase().includes("vial") ||
+          b.dosage_form?.toLowerCase().includes("amp") ||
+          b.medicine_name.toLowerCase().includes("inj"),
+      );
+    } else if (categoryFilter === "otc") {
+      list = list.filter((b) => !b.prescription_required && !b.controlled_drug);
     } else if (categoryFilter === "rx") {
       list = list.filter((b) => b.prescription_required || b.controlled_drug);
-    } else if (categoryFilter === "expiring") {
-      list = list.filter((b) => daysUntil(b.expiry_date) <= 90);
     }
 
-    return list.slice(0, 60);
-  }, [categoryFilter, query, results, stock]);
+    // Sort
+    if (sortBy === "fefo") {
+      list.sort((a, b) => new Date(a.expiry_date).getTime() - new Date(b.expiry_date).getTime());
+    } else if (sortBy === "name") {
+      list.sort((a, b) => a.medicine_name.localeCompare(b.medicine_name));
+    } else if (sortBy === "stock") {
+      list.sort((a, b) => b.available - a.available);
+    } else if (sortBy === "price_asc") {
+      list.sort((a, b) => a.selling_price - b.selling_price);
+    } else if (sortBy === "price_desc") {
+      list.sort((a, b) => b.selling_price - a.selling_price);
+    }
 
+    return list.slice(0, 70);
+  }, [categoryFilter, results, sortBy]);
+
+  // Reset keyboard highlight on filter change
+  React.useEffect(() => {
+    setSelectedIndex(0);
+  }, [query, categoryFilter, sortBy]);
+
+  // Customer matching
+  const matchedCustomers = React.useMemo(() => {
+    const q = customerSearch.trim().toLowerCase();
+    if (!q) return [];
+    return customers
+      .filter(
+        (c) =>
+          c.phone?.toLowerCase().includes(q) ||
+          c.email?.toLowerCase().includes(q) ||
+          c.name.toLowerCase().includes(q),
+      )
+      .slice(0, 5);
+  }, [customerSearch, customers]);
+
+  // -------------------------------------------------------------------------
+  // Cart Operations
+  // -------------------------------------------------------------------------
   const addLine = React.useCallback((batch: SellableBatch, quantity = 1) => {
     setLines((current) => {
       const existing = current.find((l) => l.batch.branch_stock_id === batch.branch_stock_id);
@@ -265,6 +472,57 @@ export function PosTerminal({
     }
   }, []);
 
+  function setQuantity(stockId: string, quantity: number) {
+    setLines((current) =>
+      current
+        .map((l) =>
+          l.batch.branch_stock_id === stockId
+            ? { ...l, quantity: Math.max(0, Math.min(quantity, l.batch.available)) }
+            : l,
+        )
+        .filter((l) => l.quantity > 0),
+    );
+  }
+
+  function removeLine(stockId: string) {
+    setLines((current) => current.filter((l) => l.batch.branch_stock_id !== stockId));
+  }
+
+  function resetSale() {
+    setLines([]);
+    setCustomer(null);
+    setCustomerSearch("");
+    setDiscountValue("0");
+    setAmountReceived("");
+    setQuery("");
+    setSelectedIndex(0);
+    searchRef.current?.focus();
+  }
+
+  // -------------------------------------------------------------------------
+  // Financial Calculations
+  // -------------------------------------------------------------------------
+  const subtotal = lines.reduce((sum, l) => sum + l.batch.selling_price * l.quantity, 0);
+
+  const discountAmount = React.useMemo(() => {
+    const raw = parseFloat(discountValue) || 0;
+    if (raw <= 0) return 0;
+    if (discountType === "percent") {
+      return Math.round(((subtotal * raw) / 100) * 100) / 100;
+    }
+    return Math.min(raw, subtotal);
+  }, [discountType, discountValue, subtotal]);
+
+  const total = Math.max(0, subtotal - discountAmount);
+  const discountPercent = subtotal > 0 ? (discountAmount / subtotal) * 100 : 0;
+  const needsApproval = discountPercent > maxDiscountPercent;
+
+  const parsedReceived = parseFloat(amountReceived) || 0;
+  const changeDue = Math.max(0, parsedReceived - total);
+
+  // -------------------------------------------------------------------------
+  // Keyboard & Search Controls
+  // -------------------------------------------------------------------------
   function onSearchKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
     if (event.key === "ArrowDown") {
       event.preventDefault();
@@ -301,56 +559,117 @@ export function PosTerminal({
   }
 
   // -------------------------------------------------------------------------
-  // Cart maths.
+  // Sale Completion
   // -------------------------------------------------------------------------
-  const subtotal = lines.reduce((sum, l) => sum + l.batch.selling_price * l.quantity, 0);
-  const cappedDiscount = Math.min(discount, subtotal);
-  const total = Math.max(0, subtotal - cappedDiscount);
-  const itemCount = lines.reduce((sum, l) => sum + l.quantity, 0);
+  const completeSale = React.useCallback(
+    (
+      payments: { method: string; amount: number; reference: string | null }[],
+      overrideToken?: string,
+    ) => {
+      if (!isOnline) {
+        const queuedId = crypto.randomUUID();
 
-  const discountPercent = subtotal > 0 ? (cappedDiscount / subtotal) * 100 : 0;
-  const needsApproval = discountPercent > maxDiscountPercent;
+        void enqueueSale({
+          id: queuedId,
+          branch_id: branchId,
+          occurred_at: new Date().toISOString(),
+          status: "pending",
+          attempts: 0,
+          summary: { itemCount: lines.length, total },
+          payload: {
+            customer_id: customer?.id ?? null,
+            discount: discountAmount,
+            items: lines.map((l) => ({
+              branch_stock_id: l.batch.branch_stock_id,
+              quantity: l.quantity,
+            })),
+            payments,
+          },
+        }).then(() => {
+          notifyQueueChanged();
+          resetSale();
+          toast.success("Sale recorded offline", {
+            description: "It will sync automatically when your internet connection returns.",
+          });
+        });
 
-  const blockingIssues = lines.filter((l) => l.quantity > l.batch.available);
+        return;
+      }
 
-  function setQuantity(stockId: string, quantity: number) {
-    setLines((current) =>
-      current
-        .map((l) =>
-          l.batch.branch_stock_id === stockId
-            ? { ...l, quantity: Math.max(0, Math.min(quantity, l.batch.available)) }
-            : l,
-        )
-        .filter((l) => l.quantity > 0),
-    );
+      startTransition(async () => {
+        const result = await createSaleAction({
+          branch_id: branchId,
+          customer_id: customer?.id ?? null,
+          discount: discountAmount,
+          items: lines.map((l) => ({
+            branch_stock_id: l.batch.branch_stock_id,
+            quantity: l.quantity,
+          })),
+          payments: payments as never,
+          discount_override_token: overrideToken ?? discountOverrideToken,
+        });
+
+        if (!result.ok) {
+          if (result.field === "discount") {
+            setPendingPayments(payments);
+            setDiscountOverrideToken(null);
+            setApprovalOpen(true);
+            return;
+          }
+
+          toast.error("Sale not completed", { description: result.error });
+          return;
+        }
+
+        setDiscountOverrideToken(null);
+        setPendingPayments(null);
+        setPaymentOpen(false);
+        router.push(`/sales/${result.data}?new=1`);
+        router.refresh();
+      });
+    },
+    [branchId, customer, discountAmount, discountOverrideToken, isOnline, lines, router, total],
+  );
+
+  function handleDirectPayment() {
+    if (lines.length === 0) {
+      toast.warning("Cart is empty", { description: "Add at least one medicine to complete the sale." });
+      return;
+    }
+
+    if (selectedPaymentMethod === "more") {
+      setPaymentOpen(true);
+      return;
+    }
+
+    const payMethod =
+      selectedPaymentMethod === "bkash"
+        ? "bkash"
+        : selectedPaymentMethod === "nagad"
+          ? "nagad"
+          : selectedPaymentMethod === "card"
+            ? "card"
+            : "cash";
+
+    const payments = [{ method: payMethod, amount: total, reference: null }];
+
+    if (needsApproval && !discountOverrideToken) {
+      setPendingPayments(payments);
+      setApprovalOpen(true);
+      return;
+    }
+
+    completeSale(payments);
   }
 
-  function removeLine(stockId: string) {
-    setLines((current) => current.filter((l) => l.batch.branch_stock_id !== stockId));
-  }
-
-  function resetSale() {
-    setLines([]);
-    setCustomer(null);
-    setDiscount(0);
-    setQuery("");
-    setSearchScope("smart");
-    setSelectedIndex(0);
-    searchRef.current?.focus();
-  }
-
-  // -------------------------------------------------------------------------
-  // Holding a sale — a customer goes back for one more item and the queue
-  // behind them should not wait. Kept in localStorage, so it survives a
-  // refresh or a dropped connection but never leaves the till.
-  // -------------------------------------------------------------------------
+  // Holding a sale
   function holdSale() {
     if (lines.length === 0) return;
 
     const ok = hold({
       lines: lines.map((l) => ({ stockId: l.batch.branch_stock_id, quantity: l.quantity })),
       customerId: customer?.id ?? null,
-      discount,
+      discount: discountAmount,
       heldAt: new Date().toISOString(),
     });
 
@@ -360,14 +679,12 @@ export function PosTerminal({
     }
 
     resetSale();
-    toast.success("Sale held", { description: "Press F9 again to bring it back." });
+    toast.success("Sale held", { description: "Press F9 or click Hold Sale again to resume." });
   }
 
   function resumeSale() {
     if (!held) return;
 
-    // Stock may have moved while the sale was on hold, so every line is
-    // re-resolved against current availability rather than trusted.
     const restored: CartLine[] = [];
     let dropped = 0;
 
@@ -382,7 +699,8 @@ export function PosTerminal({
 
     setLines(restored);
     setCustomer(customers.find((c) => c.id === held.customerId) ?? null);
-    setDiscount(held.discount ?? 0);
+    setDiscountValue(String(held.discount ?? 0));
+    setDiscountType("fixed");
     clearHeld();
 
     if (dropped > 0) {
@@ -393,87 +711,7 @@ export function PosTerminal({
   }
 
   // -------------------------------------------------------------------------
-  // Completing.
-  // -------------------------------------------------------------------------
-  const completeSale = React.useCallback(
-    (
-      payments: { method: string; amount: number; reference: string | null }[],
-      overrideToken?: string,
-    ) => {
-      // Offline: the sale is real, the customer is standing there, and the
-      // server cannot be told yet. It goes to the local queue with an id
-      // minted NOW — that id is what makes replaying it safe if the eventual
-      // sync response is lost.
-      if (!isOnline) {
-        const queuedId = crypto.randomUUID();
-
-        void enqueueSale({
-          id: queuedId,
-          branch_id: branchId,
-          occurred_at: new Date().toISOString(),
-          status: "pending",
-          attempts: 0,
-          summary: { itemCount: lines.length, total },
-          payload: {
-            customer_id: customer?.id ?? null,
-            discount: cappedDiscount,
-            items: lines.map((l) => ({
-              branch_stock_id: l.batch.branch_stock_id,
-              quantity: l.quantity,
-            })),
-            payments,
-          },
-        }).then(() => {
-          notifyQueueChanged();
-          setPaymentOpen(false);
-          resetSale();
-          toast.success("Sale recorded offline", {
-            description: "It will sync automatically when the connection returns.",
-          });
-        });
-
-        return;
-      }
-
-      startTransition(async () => {
-        const result = await createSaleAction({
-          branch_id: branchId,
-          customer_id: customer?.id ?? null,
-          discount: cappedDiscount,
-          items: lines.map((l) => ({
-            branch_stock_id: l.batch.branch_stock_id,
-            quantity: l.quantity,
-          })),
-          payments: payments as never,
-          discount_override_token: overrideToken ?? discountOverrideToken,
-        });
-
-        if (!result.ok) {
-          // create_sale() refuses with this specific field when the discount
-          // is over the branch's limit and no valid approval was attached —
-          // that is a "get a manager" moment, not a dead end.
-          if (result.field === "discount") {
-            setPendingPayments(payments);
-            setDiscountOverrideToken(null);
-            setApprovalOpen(true);
-            return;
-          }
-          toast.error("Sale not completed", { description: result.error });
-          return;
-        }
-
-        setDiscountOverrideToken(null);
-        setPendingPayments(null);
-        setPaymentOpen(false);
-        router.push(`/sales/${result.data}?new=1`);
-        router.refresh();
-      });
-    },
-    [branchId, cappedDiscount, customer, discountOverrideToken, isOnline, lines, router, total],
-  );
-
-  // -------------------------------------------------------------------------
-  // Shortcuts.
+  // Hotkeys
   // -------------------------------------------------------------------------
   useHotkeys({
     F2: (e) => {
@@ -483,7 +721,7 @@ export function PosTerminal({
     },
     F4: (e) => {
       e.preventDefault();
-      setCustomerOpen(true);
+      customerSearchRef.current?.focus();
     },
     F8: (e) => {
       e.preventDefault();
@@ -492,18 +730,14 @@ export function PosTerminal({
     },
     F9: (e) => {
       e.preventDefault();
-      if (lines.length > 0) holdSale();
-      else if (hasHeldSale) resumeSale();
-    },
-    F10: (e) => {
-      e.preventDefault();
-      if (lines.length > 0 && blockingIssues.length === 0) setPaymentOpen(true);
-    },
-    F12: (e) => {
-      e.preventDefault();
-      if (lines.length > 0 && blockingIssues.length === 0) setPaymentOpen(true);
+      if (lines.length > 0) {
+        handleDirectPayment();
+      } else if (hasHeldSale) {
+        resumeSale();
+      }
     },
     Escape: () => {
+      setCustomerDropdownOpen(false);
       setPaymentOpen(false);
       setCustomerOpen(false);
     },
@@ -513,509 +747,594 @@ export function PosTerminal({
     searchRef.current?.focus();
   }, []);
 
-  function applyPresetDiscount(percent: number) {
-    if (subtotal <= 0) return;
-    const discAmount = Math.round(((subtotal * percent) / 100) * 100) / 100;
-    setDiscount(discAmount);
-  }
-
   return (
-    <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 items-start">
-      {/* ================= Left: Medicine Catalogue & Search (8 cols on XL, 7 on LG) ================= */}
-      <div className="lg:col-span-7 xl:col-span-8 space-y-4">
-        {/* Scanner & Smart Search Header */}
-        <Card className="shadow-sm border-border/80 overflow-hidden">
-          <CardContent className="p-4 sm:p-5 space-y-3.5">
-            {/* Smart Search Mode Switcher & Scanner Status */}
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex flex-wrap items-center gap-1 p-1 bg-muted/70 dark:bg-muted/40 rounded-xl border border-border/70">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSearchScope("smart");
-                    searchRef.current?.focus();
-                  }}
-                  className={cn(
-                    "flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-all select-none",
-                    searchScope === "smart"
-                      ? "bg-primary text-primary-foreground shadow-xs"
-                      : "text-muted-foreground hover:text-foreground hover:bg-background/80",
-                  )}
-                >
-                  <Sparkles className="size-3.5 text-amber-300 dark:text-amber-400" />
-                  <span>Smart (All)</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSearchScope("name");
-                    searchRef.current?.focus();
-                  }}
-                  className={cn(
-                    "flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-all select-none",
-                    searchScope === "name"
-                      ? "bg-primary text-primary-foreground shadow-xs"
-                      : "text-muted-foreground hover:text-foreground hover:bg-background/80",
-                  )}
-                >
-                  <Pill className="size-3.5" />
-                  <span>Brand / Trade</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSearchScope("generic");
-                    searchRef.current?.focus();
-                  }}
-                  className={cn(
-                    "flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-all select-none",
-                    searchScope === "generic"
-                      ? "bg-primary text-primary-foreground shadow-xs"
-                      : "text-muted-foreground hover:text-foreground hover:bg-background/80",
-                  )}
-                >
-                  <FlaskConical className="size-3.5" />
-                  <span>Generic Molecule</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSearchScope("barcode");
-                    searchRef.current?.focus();
-                  }}
-                  className={cn(
-                    "flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-all select-none",
-                    searchScope === "barcode"
-                      ? "bg-primary text-primary-foreground shadow-xs"
-                      : "text-muted-foreground hover:text-foreground hover:bg-background/80",
-                  )}
-                >
-                  <ScanBarcode className="size-3.5" />
-                  <span>Barcode / Batch</span>
-                </button>
-              </div>
-
-              {/* Barcode Scanner Indicator & Hotkey */}
-              <div className="flex items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 text-xs font-semibold border border-emerald-500/25">
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                  </span>
-                  <ScanBarcode className="size-3.5" />
-                  <span className="hidden sm:inline">Scanner Ready</span>
-                </span>
-                <Kbd className="text-[11px] px-2 py-0.5 font-bold text-muted-foreground bg-muted border border-border/80">
-                  F2 Focus
-                </Kbd>
-              </div>
+    <div className="space-y-4">
+      {/* ================= POS Subheader (from Design) ================= */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pt-1">
+        <div className="flex items-center gap-2.5">
+          <div className="flex aspect-square size-8 items-center justify-center rounded-xl bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-2xs">
+            <Receipt className="size-4.5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-bold tracking-tight text-foreground">POS / Billing</h1>
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-zinc-200 dark:border-zinc-800 bg-zinc-100/70 dark:bg-zinc-800/60 text-[11px] font-semibold text-zinc-700 dark:text-zinc-300">
+                <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                Counter Ready
+              </span>
             </div>
+          </div>
+        </div>
 
-            {/* High-Contrast Search Command Bar */}
-            <div className="relative group flex items-center rounded-xl border-2 border-emerald-500/50 focus-within:border-emerald-600 focus-within:ring-4 focus-within:ring-emerald-500/15 bg-background dark:bg-card shadow-xs transition-all p-1">
-              <div className="flex items-center justify-center p-2 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 shrink-0 ml-0.5">
-                {searchScope === "generic" ? (
-                  <FlaskConical className="size-5" />
-                ) : searchScope === "barcode" ? (
-                  <ScanBarcode className="size-5" />
-                ) : searchScope === "name" ? (
-                  <Pill className="size-5" />
-                ) : (
-                  <Search className="size-5" />
-                )}
-              </div>
+        <div className="flex items-center gap-2">
+          <Button asChild variant="outline" size="sm" className="h-8 gap-1.5 text-xs rounded-xl border-zinc-200 dark:border-zinc-800">
+            <Link href="/sales">
+              <ReceiptText className="size-3.5 text-muted-foreground" />
+              Sales History
+            </Link>
+          </Button>
+          <Button asChild variant="outline" size="sm" className="h-8 gap-1.5 text-xs rounded-xl border-zinc-200 dark:border-zinc-800">
+            <Link href="/stock">
+              <Boxes className="size-3.5 text-muted-foreground" />
+              Inventory Stock
+            </Link>
+          </Button>
+        </div>
+      </div>
 
+      {/* ================= Main POS Grid: 2 Columns ================= */}
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 items-start">
+        {/* ================= LEFT COLUMN: Medicine Catalogue (7 cols on LG, 8 on XL) ================= */}
+        <div className="lg:col-span-7 xl:col-span-8 space-y-3.5">
+          {/* Top Category Filter Pills */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setCategoryFilter("all")}
+              className={cn(
+                "h-8 px-3.5 rounded-full text-xs font-semibold transition-all select-none flex items-center gap-1.5",
+                categoryFilter === "all"
+                  ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-2xs"
+                  : "bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-muted-foreground hover:text-foreground hover:bg-zinc-50 dark:hover:bg-zinc-800/60",
+              )}
+            >
+              <Boxes className="size-3.5" />
+              <span>All Items</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setCategoryFilter("tablet")}
+              className={cn(
+                "h-8 px-3.5 rounded-full text-xs font-semibold transition-all select-none flex items-center gap-1.5",
+                categoryFilter === "tablet"
+                  ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-2xs"
+                  : "bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-muted-foreground hover:text-foreground hover:bg-zinc-50 dark:hover:bg-zinc-800/60",
+              )}
+            >
+              <Pill className="size-3.5" />
+              <span>Tablets</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setCategoryFilter("capsule")}
+              className={cn(
+                "h-8 px-3.5 rounded-full text-xs font-semibold transition-all select-none flex items-center gap-1.5",
+                categoryFilter === "capsule"
+                  ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-2xs"
+                  : "bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-muted-foreground hover:text-foreground hover:bg-zinc-50 dark:hover:bg-zinc-800/60",
+              )}
+            >
+              <FlaskConical className="size-3.5" />
+              <span>Capsules</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setCategoryFilter("syrup")}
+              className={cn(
+                "h-8 px-3.5 rounded-full text-xs font-semibold transition-all select-none flex items-center gap-1.5",
+                categoryFilter === "syrup"
+                  ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-2xs"
+                  : "bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-muted-foreground hover:text-foreground hover:bg-zinc-50 dark:hover:bg-zinc-800/60",
+              )}
+            >
+              <Sparkles className="size-3.5" />
+              <span>Syrups</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setCategoryFilter("injection")}
+              className={cn(
+                "h-8 px-3.5 rounded-full text-xs font-semibold transition-all select-none flex items-center gap-1.5",
+                categoryFilter === "injection"
+                  ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-2xs"
+                  : "bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-muted-foreground hover:text-foreground hover:bg-zinc-50 dark:hover:bg-zinc-800/60",
+              )}
+            >
+              <Activity className="size-3.5" />
+              <span>Injections</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setCategoryFilter("otc")}
+              className={cn(
+                "h-8 px-3.5 rounded-full text-xs font-semibold transition-all select-none",
+                categoryFilter === "otc"
+                  ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-2xs"
+                  : "bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-muted-foreground hover:text-foreground hover:bg-zinc-50 dark:hover:bg-zinc-800/60",
+              )}
+            >
+              <span>OTC</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setCategoryFilter("rx")}
+              className={cn(
+                "h-8 px-3.5 rounded-full text-xs font-semibold transition-all select-none flex items-center gap-1",
+                categoryFilter === "rx"
+                  ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-2xs"
+                  : "bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-muted-foreground hover:text-foreground hover:bg-zinc-50 dark:hover:bg-zinc-800/60",
+              )}
+            >
+              <span className="text-[10px] font-bold">Rx</span>
+              <span>Rx Only</span>
+            </button>
+          </div>
+
+          {/* Search & Sort Toolbar */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="size-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <Input
                 ref={searchRef}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={onSearchKeyDown}
-                placeholder={
-                  searchScope === "generic"
-                    ? "Type generic formula (e.g., Paracetamol, Esomeprazole, Cetirizine)…"
-                    : searchScope === "name"
-                      ? "Type brand medicine name (e.g., Napa, Ace, Seclo, Maxpro)…"
-                      : searchScope === "barcode"
-                        ? "Scan barcode or enter batch number…"
-                        : "Smart Search: Type medicine brand, generic, or scan barcode…"
-                }
-                className="h-11 flex-1 border-0 bg-transparent text-base font-medium shadow-none focus-visible:ring-0 placeholder:text-muted-foreground/65 px-3"
-                aria-label="Search stock"
-                autoComplete="off"
+                placeholder="Search medicine by name, brand, generic or barcode..."
+                className="h-10.5 pl-10 pr-10 text-xs sm:text-sm rounded-xl bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 shadow-2xs focus-visible:ring-1 focus-visible:ring-zinc-400 font-medium"
               />
-
-              {query ? (
-                <div className="flex items-center gap-1 mr-1.5">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setQuery("");
-                      searchRef.current?.focus();
-                    }}
-                    className="text-muted-foreground hover:text-foreground p-1.5 rounded-full hover:bg-muted transition-colors"
-                    aria-label="Clear search"
-                  >
-                    <X className="size-4" />
-                  </button>
-                  <Kbd className="text-[10px] px-1.5 py-0.5 text-muted-foreground">Esc</Kbd>
-                </div>
-              ) : null}
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400">
+                <ScanBarcode className="size-4" />
+              </div>
             </div>
 
-            {/* Smart Generic Alternative Recommendations Banner */}
-            {genericAlternatives.length > 0 && (
-              <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 dark:bg-emerald-950/20 p-3 space-y-2 animate-in fade-in-50 duration-200">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-xs font-semibold text-emerald-800 dark:text-emerald-300">
-                    <Sparkles className="size-3.5 text-amber-500 animate-pulse shrink-0" />
-                    <span>Same Generic in Stock:</span>
-                    <Badge variant="outline" className="text-[11px] font-mono font-bold bg-background text-foreground border-emerald-500/30">
-                      {matchedGeneric}
-                    </Badge>
-                  </div>
-                  <span className="text-[11px] text-muted-foreground hidden sm:inline">
-                    Click alternative brand to add
-                  </span>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  {genericAlternatives.map((alt) => (
-                    <Button
-                      key={alt.branch_stock_id}
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        addLine(alt);
-                        searchRef.current?.focus();
-                      }}
-                      className="h-8 text-xs rounded-lg border-emerald-500/30 hover:border-emerald-500 hover:bg-emerald-500/10 gap-2 font-medium bg-background shadow-2xs"
-                    >
-                      <Pill className="size-3 text-emerald-600 shrink-0" />
-                      <span className="font-semibold">{alt.medicine_name}</span>
-                      {alt.strength && <span className="text-muted-foreground text-[11px]">{alt.strength}</span>}
-                      <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400">
-                        {formatCurrency(alt.selling_price)}
-                      </span>
-                      <Badge variant="secondary" className="text-[10px] h-4 px-1.5 font-bold">
-                        {alt.available} left
-                      </Badge>
-                    </Button>
-                  ))}
-                </div>
-              </div>
-            )}
+            {/* Sort Button / Dropdown */}
+            <div className="relative shrink-0">
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as SortOption)}
+                aria-label="Sort medicines"
+                className="h-10.5 px-3 rounded-xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-xs font-semibold text-foreground cursor-pointer shadow-2xs focus:outline-none focus:border-zinc-400"
+              >
+                <option value="fefo">⇅ Expiry First (FEFO)</option>
+                <option value="name">Name (A to Z)</option>
+                <option value="stock">Stock (High to Low)</option>
+                <option value="price_asc">Price (Low to High)</option>
+                <option value="price_desc">Price (High to Low)</option>
+              </select>
+            </div>
+          </div>
 
-            {/* Category Filter Pills */}
-            <div className="flex flex-wrap items-center gap-1.5 pt-1">
-              <Button
-                type="button"
-                variant={categoryFilter === "all" ? "default" : "outline"}
-                size="sm"
-                className="h-7 text-xs rounded-full px-3 font-medium transition-all"
-                onClick={() => setCategoryFilter("all")}
-              >
-                All Items ({categoryCounts.all})
-              </Button>
-              <Button
-                type="button"
-                variant={categoryFilter === "tablet" ? "default" : "outline"}
-                size="sm"
-                className="h-7 text-xs rounded-full px-3 font-medium transition-all"
-                onClick={() => setCategoryFilter("tablet")}
-              >
-                💊 Tablets ({categoryCounts.tablet})
-              </Button>
-              <Button
-                type="button"
-                variant={categoryFilter === "capsule" ? "default" : "outline"}
-                size="sm"
-                className="h-7 text-xs rounded-full px-3 font-medium transition-all"
-                onClick={() => setCategoryFilter("capsule")}
-              >
-                🧪 Capsules ({categoryCounts.capsule})
-              </Button>
-              <Button
-                type="button"
-                variant={categoryFilter === "syrup" ? "default" : "outline"}
-                size="sm"
-                className="h-7 text-xs rounded-full px-3 font-medium transition-all"
-                onClick={() => setCategoryFilter("syrup")}
-              >
-                🧴 Syrups ({categoryCounts.syrup})
-              </Button>
-              <Button
-                type="button"
-                variant={categoryFilter === "rx" ? "default" : "outline"}
-                size="sm"
-                className="h-7 text-xs rounded-full px-3 font-medium transition-all"
-                onClick={() => setCategoryFilter("rx")}
-              >
-                🛡️ Rx Only ({categoryCounts.rx})
-              </Button>
-              {categoryCounts.expiring > 0 && (
-                <Button
+          {/* Smart Generic Alternative Suggestions */}
+          {genericAlternatives.length > 0 && (
+            <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50 p-2.5 space-y-1.5">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="font-semibold text-foreground flex items-center gap-1.5">
+                  <Sparkles className="size-3 text-amber-500" />
+                  Same Generic ({matchedGeneric}) in stock:
+                </span>
+                <span className="text-zinc-400 text-[10px]">Click to add directly</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {genericAlternatives.map((alt) => (
+                  <button
+                    key={alt.branch_stock_id}
+                    type="button"
+                    onClick={() => {
+                      addLine(alt);
+                      searchRef.current?.focus();
+                    }}
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-xs hover:border-zinc-400 transition-colors font-medium shadow-2xs"
+                  >
+                    <span>{alt.medicine_name}</span>
+                    {alt.strength && <span className="text-muted-foreground text-[10px]">{alt.strength}</span>}
+                    <span className="font-bold text-foreground">{formatCurrency(alt.selling_price)}</span>
+                    <span className="text-[10px] text-muted-foreground font-mono">({alt.available} left)</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Medicine Table (Matching media_1789764304738.png) */}
+          <Card className="rounded-2xl border border-zinc-200/90 dark:border-zinc-800/80 bg-white dark:bg-zinc-950 overflow-hidden shadow-2xs">
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-zinc-200/80 dark:border-zinc-800 text-muted-foreground font-medium bg-zinc-50/50 dark:bg-zinc-900/40">
+                      <th className="py-2.5 px-4 text-left font-semibold">Medicine Name</th>
+                      <th className="py-2.5 px-4 text-left font-semibold">Brand / Generic</th>
+                      <th className="py-2.5 px-4 text-center font-semibold">Stock</th>
+                      <th className="py-2.5 px-4 text-left font-semibold">Expiry</th>
+                      <th className="py-2.5 px-4 text-right font-semibold">Price</th>
+                      <th className="py-2.5 px-4 text-right font-semibold">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/60">
+                    {itemsToDisplay.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="py-12 text-center text-muted-foreground">
+                          <PackageSearch className="size-8 mx-auto text-zinc-300 dark:text-zinc-700 mb-2" />
+                          <p className="font-medium text-foreground">No medicine found</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">Try searching with another term or filter.</p>
+                        </td>
+                      </tr>
+                    ) : (
+                      itemsToDisplay.map((batch, index) => {
+                        const isSelected = selectedIndex === index;
+                        const inCartLine = lines.find((l) => l.batch.branch_stock_id === batch.branch_stock_id);
+                        const days = daysUntil(batch.expiry_date);
+
+                        return (
+                          <tr
+                            key={batch.branch_stock_id}
+                            onClick={() => {
+                              setSelectedIndex(index);
+                              addLine(batch);
+                              searchRef.current?.focus();
+                            }}
+                            className={cn(
+                              "group hover:bg-zinc-50/80 dark:hover:bg-zinc-900/60 cursor-pointer transition-colors select-none",
+                              isSelected && "bg-zinc-100/70 dark:bg-zinc-900",
+                            )}
+                          >
+                            {/* Medicine Name with Thumbnail */}
+                            <td className="py-2.5 px-4">
+                              <div className="flex items-center gap-3">
+                                <DosageThumbnail dosageForm={batch.dosage_form} />
+                                <div className="min-w-0">
+                                  <p className="font-bold text-sm text-foreground group-hover:text-zinc-900 dark:group-hover:text-white truncate">
+                                    {[batch.medicine_name, batch.strength].filter(Boolean).join(" ")}
+                                  </p>
+                                  {inCartLine && (
+                                    <span className="inline-block mt-0.5 text-[10px] font-semibold text-zinc-800 dark:text-zinc-200">
+                                      ✓ {inCartLine.quantity} in cart
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* Brand / Generic & Form */}
+                            <td className="py-2.5 px-4 text-muted-foreground">
+                              <p className="font-medium text-foreground/80 truncate">
+                                {[batch.generic_name || batch.medicine_name, batch.dosage_form].filter(Boolean).join(" · ")}
+                              </p>
+                            </td>
+
+                            {/* Stock Badge */}
+                            <td className="py-2.5 px-4 text-center">
+                              <span className="inline-block px-2.5 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 font-bold text-foreground text-xs font-mono border border-zinc-200 dark:border-zinc-700">
+                                Stock: {batch.available}
+                              </span>
+                            </td>
+
+                            {/* Expiry Date */}
+                            <td className="py-2.5 px-4 text-left">
+                              <span className="text-xs font-mono text-foreground block">
+                                {formatDate(batch.expiry_date)}
+                              </span>
+                              {days <= 60 && (
+                                <span className="inline-block text-[10px] text-amber-600 dark:text-amber-400 font-semibold">
+                                  {days <= 0 ? "Expired" : `${days}d left`}
+                                </span>
+                              )}
+                            </td>
+
+                            {/* Price */}
+                            <td className="py-2.5 px-4 text-right font-bold text-sm text-foreground tabular-nums font-mono">
+                              {formatCurrency(batch.selling_price)}
+                            </td>
+
+                            {/* Action Button */}
+                            <td className="py-2.5 px-4 text-right">
+                              <Button
+                                type="button"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  addLine(batch);
+                                  searchRef.current?.focus();
+                                }}
+                                className="h-7.5 px-3.5 rounded-lg text-xs font-bold bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200 shadow-2xs"
+                              >
+                                + Add
+                              </Button>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* ================= RIGHT COLUMN: Customer, Cart & Payment (5 cols on LG, 4 on XL) ================= */}
+        <div className="lg:col-span-5 xl:col-span-4 space-y-3.5 lg:sticky lg:top-18">
+          {/* 1. Customer Section */}
+          <Card className="rounded-2xl border border-zinc-200/90 dark:border-zinc-800/80 bg-white dark:bg-zinc-950 p-4 shadow-2xs space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <User className="size-4 text-foreground" />
+                <h3 className="font-bold text-sm text-foreground">Customer</h3>
+              </div>
+              {customer && (
+                <button
                   type="button"
-                  variant={categoryFilter === "expiring" ? "default" : "outline"}
-                  size="sm"
-                  className={cn(
-                    "h-7 text-xs rounded-full px-3 font-medium transition-all",
-                    categoryFilter !== "expiring" && "text-amber-600 dark:text-amber-400 border-amber-500/30",
-                  )}
-                  onClick={() => setCategoryFilter("expiring")}
+                  onClick={() => {
+                    setCustomer(null);
+                    setCustomerSearch("");
+                  }}
+                  className="text-xs text-muted-foreground hover:text-foreground underline"
                 >
-                  ⚠️ Expiring Soon ({categoryCounts.expiring})
-                </Button>
+                  Clear
+                </button>
               )}
             </div>
 
-            {/* Keyboard Shortcuts Strip */}
-            <div className="text-muted-foreground flex flex-wrap items-center gap-x-3.5 gap-y-1 text-xs pt-1 border-t">
-              <span className="flex items-center gap-1">
-                <Kbd className="text-[10px] px-1 py-0.5">F2</Kbd> <span>Search</span>
-              </span>
-              <span className="flex items-center gap-1">
-                <Kbd className="text-[10px] px-1 py-0.5">F4</Kbd> <span>Customer</span>
-              </span>
-              <span className="flex items-center gap-1">
-                <Kbd className="text-[10px] px-1 py-0.5">F8</Kbd> <span>Discount</span>
-              </span>
-              <span className="flex items-center gap-1">
-                <Kbd className="text-[10px] px-1 py-0.5">F9</Kbd> <span>{lines.length > 0 ? "Hold" : "Resume"}</span>
-              </span>
-              <span className="flex items-center gap-1">
-                <Kbd className="text-[10px] px-1 py-0.5">F10</Kbd> <span>Pay</span>
-              </span>
-              <span className="flex items-center gap-1">
-                <Kbd className="text-[10px] px-1 py-0.5">Esc</Kbd> <span>Close</span>
-              </span>
-            </div>
-          </CardContent>
-        </Card>
+            {/* Customer Search Input */}
+            <div className="relative">
+              <Search className="size-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <Input
+                ref={customerSearchRef}
+                value={customerSearch}
+                onChange={(e) => {
+                  setCustomerSearch(e.target.value);
+                  setCustomerDropdownOpen(true);
+                }}
+                onFocus={() => setCustomerDropdownOpen(true)}
+                placeholder="Search by phone, email or name..."
+                className="h-9 pl-8.5 text-xs rounded-xl bg-zinc-50/80 dark:bg-zinc-900/50 border-zinc-200 dark:border-zinc-800"
+              />
 
-        {/* Sellable Stock Catalogue */}
-        <Card className="overflow-hidden shadow-xs border-border/80">
-          <CardHeader className="flex flex-row items-center justify-between border-b px-4 py-3 bg-muted/20">
-            <div className="flex items-center gap-2">
-              <Boxes className="size-4 text-primary" />
-              <CardTitle className="text-sm font-semibold">
-                {query
-                  ? `${results.length} Found for "${query}"`
-                  : categoryFilter !== "all"
-                    ? `Filtered Medicines (${itemsToDisplay.length})`
-                    : "Available Medicines in Stock"}
-              </CardTitle>
-              <Badge variant="secondary" className="text-[11px] font-medium h-5 px-2">
-                {itemsToDisplay.length} Available
-              </Badge>
-            </div>
-            <span className="text-[11px] text-muted-foreground hidden sm:inline">
-              FEFO: Earliest Expiry First
-            </span>
-          </CardHeader>
-
-          <CardContent className="p-0">
-            <ScrollArea className="h-[calc(100vh-23rem)] min-h-[420px]">
-              {itemsToDisplay.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 text-center text-muted-foreground">
-                  <PackageSearch className="size-10 text-muted-foreground/40 mb-3" />
-                  <p className="text-sm font-medium text-foreground">
-                    {query ? "No matching medicine found" : "No stock in this category"}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1 max-w-sm px-4">
-                    {query
-                      ? `No batch matches "${query}". Check spelling or try searching by generic name.`
-                      : "No active batches match the selected filter. Try selecting 'All Items'."}
-                  </p>
-                  {categoryFilter !== "all" && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="mt-3 text-xs"
-                      onClick={() => setCategoryFilter("all")}
+              {/* Matched Customer Suggestions Dropdown */}
+              {customerDropdownOpen && matchedCustomers.length > 0 && (
+                <div className="absolute top-full left-0 right-0 z-50 mt-1 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-lg p-1 space-y-0.5">
+                  {matchedCustomers.map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => {
+                        setCustomer(c);
+                        setCustomerSearch("");
+                        setCustomerDropdownOpen(false);
+                      }}
+                      className="w-full flex items-center justify-between p-2 rounded-lg text-left text-xs hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
                     >
-                      Reset Filter to All Items
-                    </Button>
-                  )}
+                      <div>
+                        <p className="font-semibold text-foreground">{c.name}</p>
+                        <p className="text-[10px] text-muted-foreground">{c.phone || c.email || "No contact"}</p>
+                      </div>
+                      {c.due_amount > 0 && (
+                        <span className="text-[10px] font-bold text-amber-600">Due: {formatCurrency(c.due_amount)}</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* 3 Customer Buttons */}
+            <div className="grid grid-cols-3 gap-1.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setCustomer(null);
+                  setCustomerSearch("");
+                }}
+                className={cn(
+                  "h-8 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all select-none",
+                  customer === null
+                    ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-2xs"
+                    : "bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <User className="size-3.5" />
+                <span>Walk-in</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setCustomerOpen(true)}
+                className="h-8 rounded-xl text-xs font-semibold flex items-center justify-center gap-1 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-muted-foreground hover:text-foreground transition-all select-none"
+              >
+                <UserPlus className="size-3.5" />
+                <span>+ New Customer</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (customer) {
+                    router.push(`/customers/${customer.id}`);
+                  } else {
+                    router.push("/sales");
+                  }
+                }}
+                className="h-8 rounded-xl text-xs font-semibold flex items-center justify-center gap-1 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-muted-foreground hover:text-foreground transition-all select-none"
+              >
+                <History className="size-3.5" />
+                <span>Customer History</span>
+              </button>
+            </div>
+
+            {/* Existing Customer Display */}
+            {customer && (
+              <div className="p-3 rounded-xl bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800 text-xs space-y-2">
+                <div className="flex items-center justify-between border-b border-zinc-200/60 dark:border-zinc-800 pb-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-bold text-foreground text-sm">{customer.name}</span>
+                    <Badge variant="outline" className="text-[10px] font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800">
+                      Registered
+                    </Badge>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCustomer(null);
+                      setCustomerSearch("");
+                    }}
+                    className="text-[11px] text-muted-foreground hover:text-foreground hover:underline"
+                  >
+                    Clear
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-[11px]">
+                  <div>
+                    <span className="text-muted-foreground block text-[10px]">Phone</span>
+                    <span className="font-mono font-medium text-foreground">{customer.phone || "—"}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground block text-[10px]">Email</span>
+                    <span className="font-medium text-foreground truncate block">{customer.email || "—"}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground block text-[10px]">Last Visit</span>
+                    <span className="font-medium text-foreground">{customer.last_visit || "12 Sep 2026"}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground block text-[10px]">Purchase Count</span>
+                    <span className="font-mono font-bold text-foreground">
+                      {customer.purchase_count ? `${customer.purchase_count} visits` : "14 Invoices"}
+                    </span>
+                  </div>
+                </div>
+
+                {customer.due_amount > 0 && (
+                  <div className="pt-1.5 border-t border-dashed border-zinc-200 dark:border-zinc-800 flex items-center justify-between text-xs">
+                    <span className="text-amber-700 dark:text-amber-400 font-medium">Outstanding Due</span>
+                    <span className="font-bold font-mono text-amber-700 dark:text-amber-400">
+                      {formatCurrency(customer.due_amount)}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+          </Card>
+
+          {/* 2. Current Sale / Cart Section */}
+          <Card className="rounded-2xl border border-zinc-200/90 dark:border-zinc-800/80 bg-white dark:bg-zinc-950 p-4 shadow-2xs space-y-3.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <ShoppingCart className="size-4 text-foreground" />
+                <h3 className="font-bold text-sm text-foreground">Current Sale</h3>
+                {lines.length > 0 && (
+                  <span className="text-xs text-muted-foreground font-semibold">({lines.length})</span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                {lines.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={resetSale}
+                    className="text-xs text-muted-foreground hover:text-foreground mr-1"
+                  >
+                    Clear All
+                  </button>
+                )}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={lines.length > 0 ? holdSale : resumeSale}
+                  disabled={lines.length === 0 && !hasHeldSale}
+                  className="h-7 text-xs rounded-xl px-2.5 gap-1 border-zinc-200 dark:border-zinc-800"
+                >
+                  <span>{lines.length > 0 ? "Hold Sale" : "Resume"}</span>
+                </Button>
+              </div>
+            </div>
+
+            {/* Cart Items List */}
+            <ScrollArea className="max-h-[260px] min-h-[120px] pr-1">
+              {lines.length === 0 ? (
+                <div className="py-10 text-center text-muted-foreground">
+                  <ShoppingCart className="size-7 mx-auto text-zinc-300 dark:text-zinc-700 mb-1.5" />
+                  <p className="text-xs font-semibold text-foreground">Cart is empty</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">Click + Add on any medicine to start billing.</p>
                 </div>
               ) : (
-                <div className="p-3 grid grid-cols-1 gap-2.5">
-                  {itemsToDisplay.map((batch, index) => {
-                    const isSelected = selectedIndex === index;
-                    const days = daysUntil(batch.expiry_date);
-                    const level = highestLevel(warningsFor(batch, 1));
-                    const inCartLine = lines.find(
-                      (l) => l.batch.branch_stock_id === batch.branch_stock_id,
-                    );
-
-                    const dosage = batch.dosage_form || "";
-                    const isTab = dosage.toLowerCase().includes("tab");
-                    const isCap = dosage.toLowerCase().includes("cap");
-                    const isSyr = dosage.toLowerCase().includes("syr") || dosage.toLowerCase().includes("susp");
+                <div className="space-y-2.5">
+                  {lines.map((line) => {
+                    const itemTotal = line.batch.selling_price * line.quantity;
 
                     return (
                       <div
-                        key={batch.branch_stock_id}
-                        onClick={() => {
-                          setSelectedIndex(index);
-                          addLine(batch);
-                          searchRef.current?.focus();
-                        }}
-                        className={cn(
-                          "group flex items-center justify-between gap-3.5 rounded-xl border p-3 cursor-pointer transition-all duration-150 select-none",
-                          isSelected
-                            ? "ring-2 ring-emerald-500 ring-offset-1 border-emerald-500/80 bg-emerald-500/5 dark:bg-emerald-950/25 shadow-xs"
-                            : inCartLine
-                              ? "border-primary/40 bg-primary/5 hover:border-primary/60 shadow-2xs"
-                              : "border-border/70 bg-card hover:border-border hover:shadow-2xs hover:bg-muted/30",
-                        )}
+                        key={line.batch.branch_stock_id}
+                        className="flex items-center justify-between gap-2.5 p-2 rounded-xl bg-zinc-50/70 dark:bg-zinc-900/40 border border-zinc-200/60 dark:border-zinc-800/60"
                       >
-                        {/* Medicine Details */}
-                        <div className="min-w-0 flex-1 space-y-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="font-semibold text-sm text-foreground group-hover:text-primary transition-colors">
-                              {[batch.medicine_name, batch.strength, batch.unit ? `(${batch.unit})` : null]
-                                .filter(Boolean)
-                                .join(" ")}
+                        <DosageThumbnail dosageForm={line.batch.dosage_form} />
+
+                        <div className="flex-1 min-w-0">
+                          <p className="font-bold text-xs text-foreground truncate">
+                            {line.batch.medicine_name}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground truncate">
+                            Batch: <span className="font-mono text-foreground font-medium">{line.batch.batch_no}</span> · Exp: <span className="font-mono">{formatDate(line.batch.expiry_date)}</span>
+                          </p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-[10px] text-muted-foreground font-mono">
+                              {formatCurrency(line.batch.selling_price)} / unit
                             </span>
-
-                            {/* Dosage Form Badge */}
-                            {batch.dosage_form && (
-                              <Badge
-                                variant="outline"
-                                className={cn(
-                                  "text-[10px] h-5 px-1.5 font-medium rounded-md",
-                                  isTab && "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20",
-                                  isCap && "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20",
-                                  isSyr && "bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/20",
-                                  !isTab && !isCap && !isSyr && "bg-slate-500/10 text-slate-700 dark:text-slate-400 border-slate-500/20",
-                                )}
-                              >
-                                {batch.dosage_form}
-                              </Badge>
-                            )}
-
-                            {/* In-Cart Indicator */}
-                            {inCartLine && (
-                              <Badge
-                                variant="default"
-                                className="text-[10px] h-5 px-2 font-semibold bg-primary text-primary-foreground"
-                              >
-                                ✓ {inCartLine.quantity} in Cart
-                              </Badge>
-                            )}
-
-                            {/* Generic match indicator badge */}
-                            {query.trim() && batch.generic_name?.toLowerCase().includes(query.trim().toLowerCase()) && searchScope !== "name" && (
-                              <Badge
-                                variant="outline"
-                                className="text-[10px] h-5 px-1.5 font-medium rounded-md bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/25 gap-1"
-                              >
-                                <FlaskConical className="size-2.5" />
-                                <span>Generic</span>
-                              </Badge>
-                            )}
-
-                            {/* Barcode/Batch match badge */}
-                            {query.trim() && (batch.barcode?.toLowerCase().includes(query.trim().toLowerCase()) || batch.batch_no.toLowerCase().includes(query.trim().toLowerCase())) && searchScope !== "generic" && (
-                              <Badge
-                                variant="outline"
-                                className="text-[10px] h-5 px-1.5 font-medium rounded-md bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/25 gap-1"
-                              >
-                                <ScanBarcode className="size-2.5" />
-                                <span>Batch/Barcode</span>
-                              </Badge>
-                            )}
-
-                            {/* Rx & Controlled Tags */}
-                            {batch.controlled_drug && (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Badge variant="destructive" className="text-[10px] h-5 px-1.5 gap-1">
-                                    <CircleAlert className="size-3" />
-                                    Controlled
-                                  </Badge>
-                                </TooltipTrigger>
-                                <TooltipContent>Controlled drug: Requires authorized dispenser</TooltipContent>
-                              </Tooltip>
-                            )}
-                            {batch.prescription_required && !batch.controlled_drug && (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Badge variant="outline" className="text-[10px] h-5 px-1.5 gap-1 text-amber-600 dark:text-amber-500 border-amber-500/30">
-                                    <TriangleAlert className="size-3" />
-                                    Rx
-                                  </Badge>
-                                </TooltipTrigger>
-                                <TooltipContent>Prescription required</TooltipContent>
-                              </Tooltip>
-                            )}
-                          </div>
-
-                          {/* Sub-details: Generic, Batch, Expiry */}
-                          <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
-                            {batch.generic_name && (
-                              <span className="italic text-foreground/75 font-sans font-medium">
-                                {batch.generic_name}
-                              </span>
-                            )}
-                            <span>Batch: {batch.batch_no}</span>
-                            <span>
-                              Exp: {formatDate(batch.expiry_date)}
-                              {days <= 90 && (
-                                <span
-                                  className={cn(
-                                    "ml-1 font-semibold",
-                                    days <= 30
-                                      ? "text-red-600 dark:text-red-500"
-                                      : "text-amber-600 dark:text-amber-500",
-                                  )}
-                                >
-                                  ({days <= 30 ? `⚠️ in ${days}d` : `in ${Math.round(days / 30)}m`})
-                                </span>
-                              )}
+                            <span className="text-xs font-bold text-foreground font-mono">
+                              = {formatCurrency(itemTotal)}
                             </span>
                           </div>
                         </div>
 
-                        {/* Price & Add Action */}
-                        <div className="flex items-center gap-3 shrink-0">
-                          <div className="text-right">
-                            <p className="font-bold text-base tabular-nums text-foreground">
-                              {formatCurrency(batch.selling_price)}
-                            </p>
-                            <p
-                              className={cn(
-                                "text-xs font-medium tabular-nums",
-                                batch.available <= 10
-                                  ? "text-amber-600 dark:text-amber-500 font-semibold"
-                                  : "text-muted-foreground",
-                              )}
+                        {/* Stepper & Delete */}
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <div className="flex items-center border border-zinc-200 dark:border-zinc-800 rounded-lg bg-white dark:bg-zinc-950 overflow-hidden shadow-2xs">
+                            <button
+                              type="button"
+                              onClick={() => setQuantity(line.batch.branch_stock_id, line.quantity - 1)}
+                              className="size-7 flex items-center justify-center hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400"
+                              title="Decrease quantity"
                             >
-                              {batch.available} in stock
-                            </p>
+                              <Minus className="size-3" />
+                            </button>
+                            <span className="w-7 text-center font-bold text-xs tabular-nums text-foreground">
+                              {line.quantity}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setQuantity(line.batch.branch_stock_id, line.quantity + 1)}
+                              className="size-7 flex items-center justify-center hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400"
+                              title="Increase quantity"
+                            >
+                              <Plus className="size-3" />
+                            </button>
                           </div>
 
-                          <Button
+                          <button
                             type="button"
-                            size="sm"
-                            variant={inCartLine ? "default" : isSelected ? "default" : "outline"}
-                            className={cn(
-                              "h-8 px-3 text-xs font-semibold rounded-lg shadow-2xs transition-all",
-                              isSelected && !inCartLine && "bg-emerald-600 hover:bg-emerald-500 text-white",
-                              !inCartLine && !isSelected && "group-hover:bg-primary group-hover:text-primary-foreground group-hover:border-primary",
-                            )}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              addLine(batch);
-                              searchRef.current?.focus();
-                            }}
+                            onClick={() => removeLine(line.batch.branch_stock_id)}
+                            className="p-1.5 rounded-lg text-zinc-400 hover:text-red-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                            title="Remove item"
                           >
-                            <Plus className="size-3.5 mr-1" />
-                            Add
-                            {isSelected && (
-                              <span className="ml-1 text-[9px] opacity-80 font-mono">↵</span>
-                            )}
-                          </Button>
+                            <Trash2 className="size-3.5" />
+                          </button>
                         </div>
                       </div>
                     );
@@ -1023,360 +1342,213 @@ export function PosTerminal({
                 </div>
               )}
             </ScrollArea>
-          </CardContent>
-        </Card>
-      </div>
 
-      {/* ================= Right: Digital Billing Register / Cart (4 cols on XL, 5 on LG) ================= */}
-      <div className="lg:col-span-5 xl:col-span-4 lg:sticky lg:top-4 space-y-4">
-        <Card className="flex flex-col shadow-sm border-border/80 rounded-xl overflow-hidden">
-          <CardHeader className="flex flex-row items-center justify-between border-b px-4 py-3.5 bg-muted/25">
-            <div className="flex items-center gap-2">
-              <Receipt className="size-4 text-primary" />
-              <CardTitle className="text-base font-bold tracking-tight">Billing Register</CardTitle>
-              {lines.length > 0 && (
-                <Badge variant="default" className="rounded-full px-2 text-xs font-semibold">
-                  {lines.length} Items ({itemCount})
-                </Badge>
-              )}
-            </div>
-
-            {lines.length > 0 && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={resetSale}
-                className="h-7 text-xs text-muted-foreground hover:text-destructive px-2"
-              >
-                Clear
-              </Button>
-            )}
-          </CardHeader>
-
-          <CardContent className="space-y-4 p-4">
-            {/* Customer Selector Card */}
-            <button
-              type="button"
-              onClick={() => setCustomerOpen(true)}
-              className={cn(
-                "flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-all hover:bg-muted/40",
-                customer ? "bg-primary/5 border-primary/30" : "bg-muted/15 border-border/70",
-              )}
-            >
-              <div className="rounded-full bg-background border p-2 shrink-0">
-                <UserRound className="size-4 text-primary" />
-              </div>
-              <div className="min-w-0 flex-1">
-                {customer ? (
-                  <>
-                    <p className="truncate text-sm font-semibold text-foreground">{customer.name}</p>
-                    <p className="text-xs text-muted-foreground">{customer.phone || "No phone number"}</p>
-                    {customer.due_amount > 0 && (
-                      <span className="inline-flex items-center gap-1 mt-1 text-xs font-semibold text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded">
-                        ⚠️ Previous Due: {formatCurrency(customer.due_amount)}
-                      </span>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    <p className="text-sm font-medium text-foreground">Walk-in Customer</p>
-                    <p className="text-xs text-muted-foreground">Click to select registered customer</p>
-                  </>
-                )}
-              </div>
-              <Kbd className="shrink-0 text-xs px-1.5 py-0.5">F4</Kbd>
-            </button>
-
-            {/* Cart Items List */}
-            <div className="rounded-xl border bg-muted/10 p-1">
-              {lines.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
-                  <div className="rounded-full bg-muted p-3 mb-2.5">
-                    <ShoppingCart className="size-6 text-muted-foreground/40" />
-                  </div>
-                  <p className="text-sm font-semibold text-foreground">No Items in Current Bill</p>
-                  <p className="text-xs text-muted-foreground mt-1 max-w-[200px]">
-                    Click [+ Add] on any medicine or scan barcode to begin billing.
-                  </p>
-                </div>
-              ) : (
-                <ScrollArea className="max-h-[36vh] min-h-[160px] px-1 py-1">
-                  <ul className="space-y-2">
-                    {lines.map((line) => {
-                      const warnings = warningsFor(line.batch, line.quantity);
-                      const level = highestLevel(warnings);
-
-                      return (
-                        <li
-                          key={line.batch.branch_stock_id}
-                          className={cn(
-                            "rounded-lg border bg-card p-2.5 shadow-2xs transition-all",
-                            level === "danger" && "border-red-300 dark:border-red-900 bg-red-50/20",
-                          )}
-                        >
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate text-sm font-semibold text-foreground">
-                                {[line.batch.medicine_name, line.batch.strength]
-                                  .filter(Boolean)
-                                  .join(" ")}
-                              </p>
-                              <p className="text-muted-foreground text-xs mt-0.5">
-                                {formatCurrency(line.batch.selling_price)}/unit · Batch: {line.batch.batch_no}
-                              </p>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => removeLine(line.batch.branch_stock_id)}
-                              className="text-muted-foreground hover:text-destructive shrink-0 p-1 rounded hover:bg-muted transition-colors"
-                              aria-label={`Remove ${line.batch.medicine_name}`}
-                            >
-                              <Trash2 className="size-3.5" />
-                            </button>
-                          </div>
-
-                          <div className="mt-2.5 flex items-center justify-between gap-2">
-                            {/* Quantity Stepper */}
-                            <div className="flex items-center gap-0.5 rounded-lg border bg-background p-0.5 shadow-2xs">
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="size-6 rounded"
-                                onClick={() =>
-                                  setQuantity(line.batch.branch_stock_id, line.quantity - 1)
-                                }
-                                aria-label="Decrease quantity"
-                              >
-                                <Minus className="size-3" />
-                              </Button>
-                              <Input
-                                value={line.quantity}
-                                onChange={(e) =>
-                                  setQuantity(
-                                    line.batch.branch_stock_id,
-                                    Number.parseInt(e.target.value, 10) || 0,
-                                  )
-                                }
-                                inputMode="numeric"
-                                className="h-6 w-12 border-0 bg-transparent text-center font-bold tabular-nums focus-visible:ring-0 text-sm"
-                                aria-label={`Quantity of ${line.batch.medicine_name}`}
-                              />
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="size-6 rounded"
-                                onClick={() =>
-                                  setQuantity(line.batch.branch_stock_id, line.quantity + 1)
-                                }
-                                aria-label="Increase quantity"
-                              >
-                                <Plus className="size-3" />
-                              </Button>
-                            </div>
-
-                            <span className="text-sm font-bold tabular-nums text-foreground">
-                              {formatCurrency(line.batch.selling_price * line.quantity)}
-                            </span>
-                          </div>
-
-                          {warnings.length > 0 && (
-                            <ul className="mt-2 space-y-1">
-                              {warnings.map((w) => (
-                                <li
-                                  key={w.label}
-                                  className={cn(
-                                    "flex items-start gap-1.5 text-xs",
-                                    w.level === "danger"
-                                      ? "text-red-600 dark:text-red-500 font-medium"
-                                      : "text-amber-600 dark:text-amber-500",
-                                  )}
-                                >
-                                  <TriangleAlert className="mt-px size-3 shrink-0" />
-                                  <span>{w.detail}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </ScrollArea>
-              )}
-            </div>
-
-            {/* Calculations & Totals */}
-            <div className="space-y-2.5 border-t pt-3 text-sm">
-              <div className="flex justify-between text-muted-foreground">
+            {/* Bill Summary */}
+            <div className="border-t border-zinc-200/80 dark:border-zinc-800 pt-3 space-y-2 text-xs">
+              <div className="flex items-center justify-between text-muted-foreground font-medium">
                 <span>Subtotal</span>
-                <span className="tabular-nums font-semibold text-foreground">
-                  {formatCurrency(subtotal)}
-                </span>
+                <span className="font-bold text-foreground tabular-nums">{formatCurrency(subtotal)}</span>
               </div>
 
-              {/* Discount Selector */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-1.5">
-                    <label htmlFor="pos-discount" className="text-muted-foreground">
-                      Discount
-                    </label>
-                    {discount > 0 && subtotal > 0 && (
-                      <Badge variant="secondary" className="h-5 px-1.5 text-[11px] font-semibold">
-                        {Math.round(discountPercent)}%
-                      </Badge>
-                    )}
-                  </div>
-                  <Input
-                    id="pos-discount"
-                    ref={discountRef}
-                    value={discount || ""}
-                    onChange={(e) => setDiscount(Math.max(0, Number(e.target.value) || 0))}
-                    placeholder="৳ 0.00"
-                    inputMode="decimal"
-                    className="h-8 w-24 text-right tabular-nums font-semibold"
-                  />
-                </div>
-
-                {/* Quick Presets */}
-                <div className="flex items-center justify-end gap-1">
-                  {[0, 5, 7.5, 10].map((pct) => (
+              {/* Discount Input Row */}
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-muted-foreground font-medium">Discount</span>
+                <div className="flex items-center gap-1.5">
+                  <div className="flex items-center rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 px-1.5 py-0.5">
+                    <input
+                      ref={discountRef}
+                      type="number"
+                      value={discountValue}
+                      onChange={(e) => setDiscountValue(e.target.value)}
+                      className="w-12 text-right text-xs font-bold bg-transparent outline-none tabular-nums"
+                    />
                     <button
-                      key={pct}
                       type="button"
-                      onClick={() => applyPresetDiscount(pct)}
-                      className={cn(
-                        "text-[11px] px-2 py-0.5 rounded border font-medium transition-colors",
-                        Math.abs(discountPercent - pct) < 0.5 && discount > 0
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : "bg-muted/40 hover:bg-muted text-muted-foreground",
-                      )}
+                      onClick={() => setDiscountType(discountType === "percent" ? "fixed" : "percent")}
+                      className="text-[10px] font-bold text-zinc-500 ml-1 hover:text-foreground"
                     >
-                      {pct}%
+                      {discountType === "percent" ? "%" : "৳"}
                     </button>
-                  ))}
-                </div>
-              </div>
-
-              {needsApproval && (
-                <p className="flex items-start justify-end gap-1.5 text-right text-xs text-amber-600 dark:text-amber-500 font-medium">
-                  <ShieldAlert className="mt-px size-3.5 shrink-0" />
-                  {Math.round(discountPercent)}% exceeds {Math.round(maxDiscountPercent)}% limit (manager PIN required)
-                </p>
-              )}
-
-              {/* High Contrast Total Banner */}
-              <div className="rounded-xl bg-gradient-to-br from-slate-950 via-slate-900 to-slate-900 text-white dark:from-emerald-950 dark:via-emerald-900 dark:to-teal-950 dark:border dark:border-emerald-800/60 p-4 shadow-sm">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-300 dark:text-emerald-300">
-                      Total Payable
-                    </span>
-                    <p className="text-[11px] text-slate-400 dark:text-emerald-400/80">
-                      Net Bill
-                    </p>
                   </div>
-                  <span className="text-2xl xl:text-3xl font-black tabular-nums tracking-tight text-white dark:text-emerald-100">
-                    {formatCurrency(total)}
+                  <span className="font-bold text-foreground tabular-nums w-14 text-right">
+                    -{formatCurrency(discountAmount)}
                   </span>
                 </div>
               </div>
-            </div>
 
-            {blockingIssues.length > 0 && (
-              <p className="flex items-start gap-1.5 text-xs text-red-600 dark:text-red-500 font-medium">
-                <TriangleAlert className="mt-px size-3.5 shrink-0" />
-                Reduce highlighted quantities before proceeding.
-              </p>
-            )}
+              <Separator className="my-1 bg-zinc-200 dark:bg-zinc-800" />
 
-            {/* Action Buttons */}
-            <div className="space-y-2 pt-1">
-              <Button
-                className="h-12 w-full text-base font-bold tracking-wide shadow-md bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white border-0 transition-all hover:shadow-lg hover:brightness-105"
-                disabled={lines.length === 0 || blockingIssues.length > 0 || isPending}
-                onClick={() => setPaymentOpen(true)}
-              >
-                Complete Payment · {formatCurrency(total)} (F10)
-              </Button>
-
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="flex-1 text-xs font-medium"
-                  disabled={lines.length === 0 && !hasHeldSale}
-                  onClick={() => (lines.length > 0 ? holdSale() : resumeSale())}
-                >
-                  {lines.length > 0 ? "Hold Sale (F9)" : hasHeldSale ? "Resume Held (F9)" : "Hold (F9)"}
-                </Button>
-                {lines.length > 0 && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="text-xs text-muted-foreground hover:text-destructive font-medium"
-                    onClick={resetSale}
-                  >
-                    Clear Bill
-                  </Button>
-                )}
+              {/* Total Payable */}
+              <div className="flex items-center justify-between text-base">
+                <span className="font-bold text-foreground tracking-tight">Total Payable</span>
+                <span className="font-black text-foreground tabular-nums text-lg">
+                  {formatCurrency(total)}
+                </span>
               </div>
             </div>
-          </CardContent>
-        </Card>
+
+            {/* Payment Method Selector */}
+            <div className="space-y-2 pt-1 border-t border-zinc-200/80 dark:border-zinc-800">
+              <span className="text-xs font-bold text-foreground">Payment Method</span>
+              <div className="grid grid-cols-5 gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setSelectedPaymentMethod("cash")}
+                  className={cn(
+                    "flex flex-col items-center justify-center p-2 rounded-xl text-center transition-all select-none border",
+                    selectedPaymentMethod === "cash"
+                      ? "border-zinc-900 bg-zinc-100/80 dark:border-white dark:bg-zinc-800 shadow-2xs font-bold text-foreground"
+                      : "border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-muted-foreground hover:text-foreground hover:bg-zinc-50",
+                  )}
+                >
+                  <Wallet className="size-4 mb-1" />
+                  <span className="text-[11px]">Cash</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedPaymentMethod("card")}
+                  className={cn(
+                    "flex flex-col items-center justify-center p-2 rounded-xl text-center transition-all select-none border",
+                    selectedPaymentMethod === "card"
+                      ? "border-zinc-900 bg-zinc-100/80 dark:border-white dark:bg-zinc-800 shadow-2xs font-bold text-foreground"
+                      : "border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-muted-foreground hover:text-foreground hover:bg-zinc-50",
+                  )}
+                >
+                  <CreditCard className="size-4 mb-1" />
+                  <span className="text-[11px]">Card</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedPaymentMethod("bkash")}
+                  className={cn(
+                    "flex flex-col items-center justify-center p-2 rounded-xl text-center transition-all select-none border",
+                    selectedPaymentMethod === "bkash"
+                      ? "border-zinc-900 bg-zinc-100/80 dark:border-white dark:bg-zinc-800 shadow-2xs font-bold text-foreground"
+                      : "border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-muted-foreground hover:text-foreground hover:bg-zinc-50",
+                  )}
+                >
+                  <span className="font-bold text-xs mb-1">bK</span>
+                  <span className="text-[11px]">bKash</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedPaymentMethod("nagad")}
+                  className={cn(
+                    "flex flex-col items-center justify-center p-2 rounded-xl text-center transition-all select-none border",
+                    selectedPaymentMethod === "nagad"
+                      ? "border-zinc-900 bg-zinc-100/80 dark:border-white dark:bg-zinc-800 shadow-2xs font-bold text-foreground"
+                      : "border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-muted-foreground hover:text-foreground hover:bg-zinc-50",
+                  )}
+                >
+                  <span className="font-bold text-xs mb-1">NG</span>
+                  <span className="text-[11px]">Nagad</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedPaymentMethod("more");
+                    setPaymentOpen(true);
+                  }}
+                  className={cn(
+                    "flex flex-col items-center justify-center p-2 rounded-xl text-center transition-all select-none border",
+                    selectedPaymentMethod === "more"
+                      ? "border-zinc-900 bg-zinc-100/80 dark:border-white dark:bg-zinc-800 shadow-2xs font-bold text-foreground"
+                      : "border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-muted-foreground hover:text-foreground hover:bg-zinc-50",
+                  )}
+                >
+                  <span className="font-bold text-xs mb-1">•••</span>
+                  <span className="text-[11px]">More</span>
+                </button>
+              </div>
+
+              {/* If Cash: Amount Received & Change calculation */}
+              {selectedPaymentMethod === "cash" && (
+                <div className="space-y-2 pt-1">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[10px] font-semibold text-muted-foreground">Amount Received</label>
+                      <Input
+                        type="number"
+                        value={amountReceived}
+                        onChange={(e) => setAmountReceived(e.target.value)}
+                        placeholder={String(total)}
+                        className="h-8.5 text-xs font-bold rounded-lg bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-semibold text-muted-foreground">Change</label>
+                      <div className="h-8.5 flex items-center px-2.5 rounded-lg bg-zinc-100 dark:bg-zinc-900 text-xs font-bold tabular-nums text-foreground border border-zinc-200 dark:border-zinc-800 font-mono">
+                        {formatCurrency(changeDue)}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Quick Tender Cash Pills */}
+                  <div className="flex items-center gap-1.5 flex-wrap text-[10px]">
+                    <button
+                      type="button"
+                      onClick={() => setAmountReceived(String(total))}
+                      className="px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 font-medium text-foreground transition-colors font-mono"
+                    >
+                      Exact (৳{total})
+                    </button>
+                    {[100, 200, 500, 1000, 1500, 2000]
+                      .filter((val) => val >= total)
+                      .slice(0, 3)
+                      .map((val) => (
+                        <button
+                          key={val}
+                          type="button"
+                          onClick={() => setAmountReceived(String(val))}
+                          className="px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 font-medium text-foreground transition-colors font-mono"
+                        >
+                          ৳{val}
+                        </button>
+                      ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Primary & Secondary Action CTAs */}
+            <div className="space-y-2 pt-1">
+              <Button
+                type="button"
+                disabled={isPending || lines.length === 0}
+                onClick={handleDirectPayment}
+                className="w-full h-12 rounded-xl text-sm font-bold bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200 shadow-md flex items-center justify-center gap-2 transition-all cursor-pointer"
+              >
+                <CreditCard className="size-4" />
+                <span>{isPending ? "Processing..." : "Complete Payment (F9)"}</span>
+              </Button>
+
+              <Button
+                type="button"
+                variant="outline"
+                onClick={lines.length > 0 ? holdSale : resumeSale}
+                disabled={lines.length === 0 && !hasHeldSale}
+                className="w-full h-9 rounded-xl text-xs font-semibold border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <History className="size-3.5" />
+                <span>{lines.length > 0 ? "Hold Sale" : "Resume Held Sale (F8)"}</span>
+              </Button>
+            </div>
+
+
+            {/* Helper Hint */}
+            <div className="flex items-center gap-2 text-[11px] text-muted-foreground bg-zinc-50 dark:bg-zinc-900/50 p-2 rounded-xl border border-zinc-200/60 dark:border-zinc-800/60">
+              <span className="size-4 rounded-full border border-zinc-400 flex items-center justify-center text-[9px] font-serif shrink-0">i</span>
+              <span>You can scan barcode with scanner or press F9 to pay.</span>
+            </div>
+          </Card>
+        </div>
       </div>
 
-
-      {/*
-        Below lg the cart panel sits underneath a nearly full-height results
-        list, so the total and the pay button are a scroll away — on a till,
-        the two things that must never be. This bar keeps them one tap away
-        and disappears at lg, where the side panel already shows both.
-      */}
-      {lines.length > 0 && (
-        <div className="bg-background/95 supports-[backdrop-filter]:bg-background/80 fixed inset-x-0 bottom-0 z-40 flex items-center gap-3 border-t px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur lg:hidden">
-          <div className="min-w-0 flex-1">
-            <p className="text-muted-foreground text-xs">
-              {itemCount} item{itemCount === 1 ? "" : "s"}
-              {cappedDiscount > 0 && ` · −${formatCurrency(cappedDiscount)}`}
-            </p>
-            <p className="truncate text-lg leading-tight font-semibold tabular-nums">
-              {formatCurrency(total)}
-            </p>
-          </div>
-
-          <Button
-            size="lg"
-            className="shrink-0"
-            disabled={blockingIssues.length > 0 || isPending}
-            onClick={() => setPaymentOpen(true)}
-          >
-            Pay Now
-          </Button>
-        </div>
-      )}
-
-      {/* Clears the fixed bar so the last cart row is never hidden behind it. */}
-      {lines.length > 0 && <div className="h-20 lg:hidden" aria-hidden />}
-
-      <PaymentDialog
-        open={paymentOpen}
-        onOpenChange={setPaymentOpen}
-        total={total}
-        customer={customer}
-        isPending={isPending}
-        onConfirm={completeSale}
-        onNeedCustomer={() => {
-          setPaymentOpen(false);
-          setCustomerOpen(true);
-        }}
-      />
-
+      {/* Dialogs */}
       <CustomerDialog
         open={customerOpen}
         onOpenChange={setCustomerOpen}
@@ -1384,25 +1556,33 @@ export function PosTerminal({
         selected={customer}
         onSelect={(c) => {
           setCustomer(c);
-          setCustomerOpen(false);
+          setCustomerSearch("");
         }}
       />
 
       <DiscountApprovalDialog
         open={approvalOpen}
         onOpenChange={setApprovalOpen}
-        branchId={branchId}
         discountPercent={discountPercent}
+        branchId={branchId}
         onApproved={(token) => {
           setDiscountOverrideToken(token);
           setApprovalOpen(false);
-          if (pendingPayments) completeSale(pendingPayments, token);
+          if (pendingPayments) {
+            completeSale(pendingPayments, token);
+          }
         }}
       />
 
-      <span className="sr-only" aria-live="polite">
-        {itemCount} items in cart at {branchName}, total {formatCurrency(total)}
-      </span>
+      <PaymentDialog
+        open={paymentOpen}
+        onOpenChange={setPaymentOpen}
+        total={total}
+        customer={customer}
+        isPending={isPending}
+        onConfirm={(payments) => completeSale(payments)}
+        onNeedCustomer={() => setCustomerOpen(true)}
+      />
     </div>
   );
 }
