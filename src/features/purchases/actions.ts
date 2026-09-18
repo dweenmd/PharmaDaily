@@ -29,7 +29,17 @@ export async function createPurchaseAction(input: PurchaseInput): Promise<Action
     };
   }
 
+  if (parsed.data.action_type === "draft") {
+    return { ok: true, data: "draft" };
+  }
+
   const supabase = await createClient();
+
+  const notesParts = [
+    parsed.data.payment_method ? `Method: ${parsed.data.payment_method}` : null,
+    parsed.data.action_type === "receive" ? "Status: Received at Dock" : "Status: Completed",
+    parsed.data.notes,
+  ].filter(Boolean);
 
   const { data, error } = await supabase.rpc("create_purchase", {
     p_branch_id: parsed.data.branch_id,
@@ -37,16 +47,22 @@ export async function createPurchaseAction(input: PurchaseInput): Promise<Action
     p_purchase_date: parsed.data.purchase_date,
     p_invoice_no: parsed.data.invoice_no,
     p_paid_amount: parsed.data.paid_amount,
-    p_notes: parsed.data.notes ?? undefined,
-    p_items: parsed.data.items.map((item) => ({
-      medicine_id: item.medicine_id,
-      batch_no: item.batch_no,
-      expiry_date: item.expiry_date,
-      quantity: item.quantity,
-      cost_price: item.cost_price,
-      selling_price: item.selling_price,
-      mrp: item.mrp,
-    })),
+    p_notes: notesParts.join(" | ") || undefined,
+    p_items: parsed.data.items.map((item) => {
+      const baseCost = Number(item.unit_cost ?? item.cost_price) || 0;
+      const discountPct = Number(item.discount) || 0;
+      const effectiveCost =
+        discountPct > 0 ? Number((baseCost * (1 - discountPct / 100)).toFixed(2)) : baseCost;
+      return {
+        medicine_id: item.medicine_id,
+        batch_no: item.batch_no.trim().toUpperCase(),
+        expiry_date: item.expiry_date,
+        quantity: Number(item.quantity),
+        cost_price: effectiveCost,
+        selling_price: Number(item.selling_price),
+        mrp: Number(item.mrp || item.selling_price),
+      };
+    }),
   });
 
   if (error) {
