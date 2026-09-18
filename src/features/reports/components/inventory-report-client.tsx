@@ -815,37 +815,244 @@ export function InventoryReportClient({
       .sort((a, b) => b.cost_value - a.cost_value);
   }, [filteredInventory]);
 
+  // Context Inventory (filters by branch, category, supplier for cross-section insights)
+  const contextInventory = React.useMemo(() => {
+    return rawInventory.filter((item) => {
+      if (selectedBranch !== "all") {
+        if (
+          item.branch_id &&
+          item.branch_id !== selectedBranch &&
+          item.branch_code !== selectedBranch
+        ) {
+          return false;
+        }
+      }
+      if (selectedCategory !== "all") {
+        if (
+          item.category_id !== selectedCategory &&
+          item.category_name !== selectedCategory &&
+          !item.category_name.toLowerCase().includes(selectedCategory.toLowerCase())
+        ) {
+          return false;
+        }
+      }
+      if (selectedSupplier !== "all") {
+        if (
+          item.supplier_id !== selectedSupplier &&
+          item.supplier_name !== selectedSupplier &&
+          !item.supplier_name.toLowerCase().includes(selectedSupplier.toLowerCase())
+        ) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [rawInventory, selectedBranch, selectedCategory, selectedSupplier]);
+
+  // -------------------------------------------------------------------------
+  // SECTION 1B: BRANCH CAPITAL VALUATION (Monochrome Breakdown)
+  // -------------------------------------------------------------------------
+  const branchValuations = React.useMemo(() => {
+    const map: Record<
+      string,
+      {
+        branch_name: string;
+        branch_code: string;
+        total_units: number;
+        cost_value: number;
+        batch_count: number;
+        share_percent: number;
+      }
+    > = {};
+
+    filteredInventory.forEach((item) => {
+      const code = item.branch_code || "MAIN";
+      if (!map[code]) {
+        map[code] = {
+          branch_name: item.branch_name,
+          branch_code: code,
+          total_units: 0,
+          cost_value: 0,
+          batch_count: 0,
+          share_percent: 0,
+        };
+      }
+      map[code]!.total_units += item.quantity;
+      map[code]!.cost_value += item.value;
+      map[code]!.batch_count += 1;
+    });
+
+    const grandBranchCost = Object.values(map).reduce((acc, b) => acc + b.cost_value, 0);
+
+    return Object.values(map)
+      .map((b) => ({
+        ...b,
+        share_percent:
+          grandBranchCost > 0 ? Math.round((b.cost_value / grandBranchCost) * 1000) / 10 : 0,
+      }))
+      .sort((a, b) => b.cost_value - a.cost_value);
+  }, [filteredInventory]);
+
+  // -------------------------------------------------------------------------
+  // SECTION 3B: FEFO SHELF-LIFE AGING BUCKETS (Monochrome Histogram)
+  // -------------------------------------------------------------------------
+  const fefoAgingBuckets = React.useMemo(() => {
+    const critical = {
+      id: "critical",
+      label: "< 30d",
+      title: "Critical FEFO",
+      desc: "Immediate dispensing",
+      count: 0,
+      value: 0,
+      units: 0,
+      colorClass: "bg-rose-600 dark:bg-rose-500",
+    };
+    const urgent = {
+      id: "urgent",
+      label: "31–90d",
+      title: "Urgent Dispense",
+      desc: "Frontline shelving",
+      count: 0,
+      value: 0,
+      units: 0,
+      colorClass: "bg-amber-600 dark:bg-amber-500",
+    };
+    const monitor = {
+      id: "monitor",
+      label: "91–180d",
+      title: "Quarterly Rotation",
+      desc: "Mid-term buffer",
+      count: 0,
+      value: 0,
+      units: 0,
+      colorClass: "bg-zinc-700 dark:bg-zinc-300",
+    };
+    const safe = {
+      id: "safe",
+      label: "> 180d",
+      title: "Safe Balance",
+      desc: "Secure shelf life",
+      count: 0,
+      value: 0,
+      units: 0,
+      colorClass: "bg-zinc-900 dark:bg-zinc-100",
+    };
+
+    contextInventory.forEach((item) => {
+      if (item.quantity <= 0) return;
+      const d = item.days_to_expiry;
+      if (d <= 30) {
+        critical.count += 1;
+        critical.value += item.value;
+        critical.units += item.quantity;
+      } else if (d <= 90) {
+        urgent.count += 1;
+        urgent.value += item.value;
+        urgent.units += item.quantity;
+      } else if (d <= 180) {
+        monitor.count += 1;
+        monitor.value += item.value;
+        monitor.units += item.quantity;
+      } else {
+        safe.count += 1;
+        safe.value += item.value;
+        safe.units += item.quantity;
+      }
+    });
+
+    const buckets = [critical, urgent, monitor, safe];
+    const maxVal = Math.max(...buckets.map((b) => b.value), 1);
+    const totalVal = buckets.reduce((acc, b) => acc + b.value, 0) || 1;
+
+    return buckets.map((b) => ({
+      ...b,
+      heightPercent: Math.max(8, Math.round((b.value / maxVal) * 100)),
+      sharePercent: Math.round((b.value / totalVal) * 1000) / 10,
+    }));
+  }, [contextInventory]);
+
+  // -------------------------------------------------------------------------
+  // STOCK HEALTH BREAKDOWN (Minimal Monochrome Health Strip)
+  // -------------------------------------------------------------------------
+  const stockHealthBreakdown = React.useMemo(() => {
+    const total = contextInventory.length || 1;
+    const inStock = contextInventory.filter((i) => i.status === "in_stock").length;
+    const lowStock = contextInventory.filter((i) => i.status === "low_stock").length;
+    const expiring = contextInventory.filter((i) => i.status === "expiring_soon").length;
+    const outOfStock = contextInventory.filter((i) => i.status === "out_of_stock").length;
+    const deadStock = contextInventory.filter((i) => i.status === "dead_stock").length;
+    return [
+      {
+        key: "in_stock",
+        label: "In Stock",
+        count: inStock,
+        pct: Math.round((inStock / total) * 100),
+        barClass: "bg-zinc-900 dark:bg-zinc-100",
+      },
+      {
+        key: "low_stock",
+        label: "Low Stock",
+        count: lowStock,
+        pct: Math.round((lowStock / total) * 100),
+        barClass: "bg-amber-500",
+      },
+      {
+        key: "expiring_soon",
+        label: "Expiring Soon",
+        count: expiring,
+        pct: Math.round((expiring / total) * 100),
+        barClass: "bg-rose-500",
+      },
+      {
+        key: "out_of_stock",
+        label: "Out of Stock",
+        count: outOfStock,
+        pct: Math.round((outOfStock / total) * 100),
+        barClass: "bg-zinc-400 dark:bg-zinc-600",
+      },
+      {
+        key: "dead_stock",
+        label: "Dead Stock",
+        count: deadStock,
+        pct: Math.round((deadStock / total) * 100),
+        barClass: "bg-purple-600 dark:bg-purple-400",
+      },
+    ];
+  }, [contextInventory]);
+
   // -------------------------------------------------------------------------
   // SECTION 2: LOW STOCK ITEMS
   // -------------------------------------------------------------------------
   const lowStockList = React.useMemo(() => {
-    return rawInventory
+    return contextInventory
       .filter((i) => i.quantity <= i.reorder_level && i.quantity > 0)
       .sort((a, b) => a.quantity / (a.reorder_level || 1) - b.quantity / (b.reorder_level || 1));
-  }, [rawInventory]);
+  }, [contextInventory]);
 
   // -------------------------------------------------------------------------
   // SECTION 3: EXPIRING MEDICINES (FEFO < 90 Days)
   // -------------------------------------------------------------------------
   const expiringList = React.useMemo(() => {
-    return rawInventory
+    return contextInventory
       .filter((i) => i.days_to_expiry > 0 && i.days_to_expiry <= 90 && i.quantity > 0)
       .sort((a, b) => a.days_to_expiry - b.days_to_expiry);
-  }, [rawInventory]);
+  }, [contextInventory]);
 
   // -------------------------------------------------------------------------
   // SECTION 4: OUT OF STOCK ITEMS
   // -------------------------------------------------------------------------
   const outOfStockList = React.useMemo(() => {
-    return rawInventory.filter((i) => i.quantity <= 0);
-  }, [rawInventory]);
+    return contextInventory.filter((i) => i.quantity <= 0);
+  }, [contextInventory]);
 
   // -------------------------------------------------------------------------
   // SECTION 5: DEAD STOCK ITEMS
   // -------------------------------------------------------------------------
   const deadStockList = React.useMemo(() => {
-    return rawInventory.filter((i) => i.status === "dead_stock" || (i.days_dormant ?? 0) >= 90);
-  }, [rawInventory]);
+    return contextInventory.filter(
+      (i) => i.status === "dead_stock" || (i.days_dormant ?? 0) >= 90,
+    );
+  }, [contextInventory]);
 
   // -------------------------------------------------------------------------
   // ACTIONS: EXPORT CSV
@@ -1286,62 +1493,184 @@ export function InventoryReportClient({
       </div>
 
       {/* =================================================================== */}
+      {/* MONOCHROME STOCK HEALTH DISTRIBUTION MATRIX */}
+      {/* =================================================================== */}
+      <Card className="border-border/70 shadow-xs overflow-hidden">
+        <CardContent className="p-3.5 space-y-2.5">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-semibold tracking-tight uppercase text-muted-foreground text-[11px] flex items-center gap-1.5">
+              <Layers className="size-3.5 text-muted-foreground" />
+              <span>Stock Portfolio Health Distribution</span>
+            </span>
+            <span className="text-[11px] font-mono text-muted-foreground">
+              {contextInventory.length} Total Monitored Batches
+            </span>
+          </div>
+
+          {/* Segmented monochrome health bar */}
+          <div className="h-3 w-full bg-muted rounded-md overflow-hidden flex">
+            {stockHealthBreakdown.map((item) => {
+              if (item.count === 0) return null;
+              return (
+                <div
+                  key={item.key}
+                  className={cn(item.barClass, "h-full transition-all")}
+                  style={{ width: `${item.pct}%` }}
+                  title={`${item.label}: ${item.count} batches (${item.pct}%)`}
+                />
+              );
+            })}
+          </div>
+
+          {/* Legend and jump triggers */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 pt-1">
+            {stockHealthBreakdown.map((item) => (
+              <button
+                key={item.key}
+                onClick={() => {
+                  if (item.key === "in_stock") setActiveSection("all");
+                  else if (item.key === "low_stock") setActiveSection("low_stock");
+                  else if (item.key === "expiring_soon") setActiveSection("expiring");
+                  else if (item.key === "out_of_stock") setActiveSection("out_of_stock");
+                  else if (item.key === "dead_stock") setActiveSection("dead_stock");
+                  setCurrentPage(1);
+                }}
+                className="flex items-center gap-2 p-1.5 rounded hover:bg-muted/50 text-left transition-colors cursor-pointer border border-border/40"
+              >
+                <div className={cn("size-2 rounded-full", item.barClass)} />
+                <div className="min-w-0 flex-1">
+                  <div className="text-[11px] font-medium text-foreground truncate">
+                    {item.label}
+                  </div>
+                  <div className="text-[10px] text-muted-foreground font-mono">
+                    {item.count} batches · {item.pct}%
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* =================================================================== */}
       {/* SECTION 1: STOCK VALUATION (Minimal Monochrome Charts) */}
       {/* =================================================================== */}
       {(activeSection === "all" || activeSection === "valuation") && (
-        <Card className="border-border/70 shadow-xs">
-          <CardHeader className="pb-3 border-b border-border/40">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-base font-semibold tracking-tight flex items-center gap-2">
-                  <Warehouse className="size-4 text-muted-foreground" />
-                  <span>Stock Valuation by Category</span>
-                </CardTitle>
-                <CardDescription className="text-xs">
-                  Minimal monochrome capital allocation across therapeutic classifications
-                </CardDescription>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          {/* Card 1A: Category Capital Allocation */}
+          <Card className="border-border/70 shadow-xs">
+            <CardHeader className="pb-3 border-b border-border/40">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-sm font-semibold tracking-tight flex items-center gap-2">
+                    <Warehouse className="size-4 text-muted-foreground" />
+                    <span>Stock Valuation by Category</span>
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    Minimal monochrome capital allocation across therapeutic classifications
+                  </CardDescription>
+                </div>
+                <Badge variant="outline" className="font-mono text-[10px]">
+                  {categoryValuations.length} Categories
+                </Badge>
               </div>
-              <Badge variant="outline" className="font-mono text-[10px]">
-                {categoryValuations.length} Classifications
-              </Badge>
-            </div>
-          </CardHeader>
-          <CardContent className="p-4 space-y-3.5">
-            {categoryValuations.map((cat) => (
-              <div key={cat.category_name} className="space-y-1.5">
-                <div className="flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold text-foreground">{cat.category_name}</span>
-                    <span className="text-[11px] text-muted-foreground font-mono">
-                      ({cat.total_units.toLocaleString()} units · {cat.batch_count} batches)
-                    </span>
+            </CardHeader>
+            <CardContent className="p-4 space-y-3.5">
+              {categoryValuations.map((cat) => (
+                <div key={cat.category_name} className="space-y-1.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2 truncate max-w-[240px]">
+                      <span className="font-semibold text-foreground truncate">
+                        {cat.category_name}
+                      </span>
+                      <span className="text-[11px] text-muted-foreground font-mono shrink-0">
+                        ({cat.total_units.toLocaleString()} units)
+                      </span>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <span className="font-mono font-bold text-foreground">
+                        {formatCurrency(cat.cost_value)}
+                      </span>
+                      <span className="text-muted-foreground text-[11px] ml-1.5 font-mono">
+                        ({cat.share_percent}%)
+                      </span>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <span className="font-mono font-bold text-foreground">
-                      {formatCurrency(cat.cost_value)}
-                    </span>
-                    <span className="text-muted-foreground text-[11px] ml-1.5 font-mono">
-                      ({cat.share_percent}%)
-                    </span>
+
+                  {/* Monochrome distribution bar */}
+                  <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-zinc-900 dark:bg-zinc-100 rounded-full transition-all"
+                      style={{ width: `${cat.share_percent}%` }}
+                    />
+                  </div>
+
+                  <div className="flex justify-between text-[10px] text-muted-foreground font-mono">
+                    <span>Retail Potential: {formatCurrency(cat.retail_value)}</span>
+                    <span>Gross Margin: {cat.margin_percent}%</span>
                   </div>
                 </div>
+              ))}
+            </CardContent>
+          </Card>
 
-                {/* Monochrome distribution bar */}
-                <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-zinc-900 dark:bg-zinc-100 rounded-full transition-all"
-                    style={{ width: `${cat.share_percent}%` }}
-                  />
+          {/* Card 1B: Branch Capital Allocation */}
+          <Card className="border-border/70 shadow-xs">
+            <CardHeader className="pb-3 border-b border-border/40">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-sm font-semibold tracking-tight flex items-center gap-2">
+                    <Building2 className="size-4 text-muted-foreground" />
+                    <span>Branch Capital Valuation & Holding</span>
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    Multi-outlet inventory value distribution across dispensing branches
+                  </CardDescription>
                 </div>
-
-                <div className="flex justify-between text-[10px] text-muted-foreground font-mono">
-                  <span>Retail Potential: {formatCurrency(cat.retail_value)}</span>
-                  <span>Gross Margin: {cat.margin_percent}%</span>
-                </div>
+                <Badge variant="outline" className="font-mono text-[10px]">
+                  {branchValuations.length} Outlets
+                </Badge>
               </div>
-            ))}
-          </CardContent>
-        </Card>
+            </CardHeader>
+            <CardContent className="p-4 space-y-3.5">
+              {branchValuations.map((br) => (
+                <div key={br.branch_code} className="space-y-1.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2 truncate max-w-[240px]">
+                      <Badge variant="outline" className="font-mono text-[9px] px-1 py-0 bg-muted/60">
+                        {br.branch_code}
+                      </Badge>
+                      <span className="font-semibold text-foreground truncate">
+                        {br.branch_name}
+                      </span>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <span className="font-mono font-bold text-foreground">
+                        {formatCurrency(br.cost_value)}
+                      </span>
+                      <span className="text-muted-foreground text-[11px] ml-1.5 font-mono">
+                        ({br.share_percent}%)
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Monochrome branch distribution bar */}
+                  <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-zinc-800 dark:bg-zinc-200 rounded-full transition-all"
+                      style={{ width: `${br.share_percent}%` }}
+                    />
+                  </div>
+
+                  <div className="flex justify-between text-[10px] text-muted-foreground font-mono">
+                    <span>Active Units: {br.total_units.toLocaleString()}</span>
+                    <span>Batch Count: {br.batch_count}</span>
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </div>
       )}
 
       {/* =================================================================== */}
@@ -1362,12 +1691,22 @@ export function InventoryReportClient({
                     Medicines below reorder threshold requiring purchase orders
                   </CardDescription>
                 </div>
-                <Badge
-                  variant="outline"
-                  className="font-mono text-[10px] bg-amber-50 text-amber-900 border-amber-300 dark:bg-amber-950 dark:text-amber-300"
-                >
-                  {lowStockList.length} Items
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <Badge
+                    variant="outline"
+                    className="font-mono text-[10px] bg-amber-50 text-amber-900 border-amber-300 dark:bg-amber-950 dark:text-amber-300"
+                  >
+                    {lowStockList.length} Items
+                  </Badge>
+                  <Button
+                    asChild
+                    variant="outline"
+                    size="sm"
+                    className="h-6 text-[10px] px-2 border-zinc-300 dark:border-zinc-700"
+                  >
+                    <Link href="/purchases/new">+ New PO</Link>
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent className="p-0">
@@ -1377,7 +1716,7 @@ export function InventoryReportClient({
                 </div>
               ) : (
                 <div className="divide-y divide-border/40">
-                  {lowStockList.slice(0, 5).map((item) => (
+                  {lowStockList.slice(0, 6).map((item) => (
                     <div
                       key={item.id}
                       className="p-3 hover:bg-muted/30 transition-colors flex items-center justify-between text-xs"
@@ -1415,7 +1754,7 @@ export function InventoryReportClient({
           </Card>
         )}
 
-        {/* Section 3: Expiring Medicines (FEFO shelf-life) */}
+        {/* Section 3: Expiring Medicines (FEFO Shelf-Life & Aging Histogram) */}
         {(activeSection === "all" || activeSection === "expiring") && (
           <Card className="border-border/70 shadow-xs">
             <CardHeader className="pb-3 border-b border-border/40">
@@ -1423,7 +1762,7 @@ export function InventoryReportClient({
                 <div>
                   <CardTitle className="text-sm font-semibold tracking-tight flex items-center gap-2">
                     <Clock className="size-4 text-rose-500" />
-                    <span>Expiring Medicines (FEFO &le;90d)</span>
+                    <span>Expiring Medicines (FEFO Shelf-Life)</span>
                   </CardTitle>
                   <CardDescription className="text-xs">
                     Batches requiring urgent dispensing priority or vendor return
@@ -1437,17 +1776,56 @@ export function InventoryReportClient({
                 </Badge>
               </div>
             </CardHeader>
-            <CardContent className="p-0">
+            <CardContent className="p-3.5 space-y-3">
+              {/* Minimal Monochrome FEFO Aging Histogram */}
+              <div className="p-3 bg-muted/30 rounded-md border border-border/40 space-y-2">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">
+                    FEFO Shelf-Life Aging Timeline
+                  </span>
+                  <span className="text-[10px] text-muted-foreground font-mono">
+                    Valuation & Risk Distribution
+                  </span>
+                </div>
+                <div className="grid grid-cols-4 gap-2 pt-1">
+                  {fefoAgingBuckets.map((bucket) => (
+                    <div
+                      key={bucket.id}
+                      className="flex flex-col items-center p-2 rounded bg-background border border-border/50 text-center"
+                    >
+                      <span className="text-[10px] font-bold text-foreground">{bucket.label}</span>
+                      <span className="text-[9px] text-muted-foreground font-medium">
+                        {bucket.title}
+                      </span>
+                      {/* Height Bar */}
+                      <div className="h-10 w-full flex items-end justify-center my-1.5 bg-muted/40 rounded">
+                        <div
+                          className={cn("w-3/4 rounded-t transition-all", bucket.colorClass)}
+                          style={{ height: `${bucket.heightPercent}%` }}
+                        />
+                      </div>
+                      <span className="font-mono font-bold text-[11px] text-foreground">
+                        {bucket.count} btc
+                      </span>
+                      <span className="font-mono text-[9px] text-muted-foreground">
+                        {formatCurrency(bucket.value)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Expiring Batches List */}
               {expiringList.length === 0 ? (
                 <div className="p-6 text-center text-xs text-muted-foreground">
                   No inventory batches expiring within 90 days.
                 </div>
               ) : (
-                <div className="divide-y divide-border/40">
-                  {expiringList.slice(0, 5).map((item) => (
+                <div className="divide-y divide-border/40 max-h-[220px] overflow-y-auto">
+                  {expiringList.slice(0, 6).map((item) => (
                     <div
                       key={item.id}
-                      className="p-3 hover:bg-muted/30 transition-colors flex items-center justify-between text-xs"
+                      className="py-2.5 px-1 hover:bg-muted/30 transition-colors flex items-center justify-between text-xs"
                     >
                       <div>
                         <div className="font-semibold text-foreground flex items-center gap-1.5">
@@ -1495,9 +1873,19 @@ export function InventoryReportClient({
                     Zero available balance across dispensing counters
                   </CardDescription>
                 </div>
-                <Badge variant="outline" className="font-mono text-[10px]">
-                  {outOfStockList.length} Items
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="font-mono text-[10px]">
+                    {outOfStockList.length} Items
+                  </Badge>
+                  <Button
+                    asChild
+                    variant="outline"
+                    size="sm"
+                    className="h-6 text-[10px] px-2 border-zinc-300 dark:border-zinc-700"
+                  >
+                    <Link href="/purchases/new">+ Restock</Link>
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent className="p-0">
@@ -1554,9 +1942,19 @@ export function InventoryReportClient({
                     Batches with zero dispensing movements tying up working capital
                   </CardDescription>
                 </div>
-                <Badge variant="outline" className="font-mono text-[10px]">
-                  {deadStockList.length} Batches
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="font-mono text-[10px]">
+                    {deadStockList.length} Batches
+                  </Badge>
+                  <Button
+                    asChild
+                    variant="outline"
+                    size="sm"
+                    className="h-6 text-[10px] px-2 border-zinc-300 dark:border-zinc-700"
+                  >
+                    <Link href="/stock/adjustments/new">+ Clearance</Link>
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent className="p-0">
