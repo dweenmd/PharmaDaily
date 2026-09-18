@@ -8,11 +8,13 @@ import {
   ArrowUp,
   ArrowUpDown,
   Building2,
+  Calendar,
   ChevronLeft,
   ChevronRight,
+  CreditCard,
   ExternalLink,
   Mail,
-  MoreHorizontal,
+  MapPin,
   Phone,
   Plus,
   Receipt,
@@ -30,6 +32,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 
 type SortField = "name" | "total_purchases" | "paid_amount" | "outstanding_amount" | "last_purchase_date";
 type SortDirection = "asc" | "desc";
@@ -44,7 +53,7 @@ type Props = {
 export function SuppliersClient({ suppliers, canEdit, canPay, branchId }: Props) {
   const router = useRouter();
 
-  // Filter & Search state
+  // Search & Status filters
   const [searchTerm, setSearchTerm] = React.useState("");
   const [statusFilter, setStatusFilter] = React.useState<"all" | "active" | "due" | "inactive">("all");
 
@@ -56,13 +65,20 @@ export function SuppliersClient({ suppliers, canEdit, canPay, branchId }: Props)
   const [currentPage, setCurrentPage] = React.useState(1);
   const [pageSize, setPageSize] = React.useState(15);
 
-  // Summary Metrics
+  // Selected supplier for detail drawer / sheet
+  const [selectedSupplier, setSelectedSupplier] = React.useState<SupplierWithStats | null>(null);
+  const [isDetailOpen, setIsDetailOpen] = React.useState(false);
+
+  // Summary KPIs
   const totalSuppliers = suppliers.length;
   const activeSuppliers = suppliers.filter((s) => s.is_active).length;
-  const totalOutstandingPayables = suppliers.reduce((sum, s) => sum + (Number(s.outstanding_amount) || 0), 0);
+  const totalOutstandingPayables = suppliers.reduce(
+    (sum, s) => sum + (Number(s.outstanding_amount) || 0),
+    0,
+  );
   const suppliersWithDue = suppliers.filter((s) => Number(s.outstanding_amount) > 0).length;
 
-  // Filtered Suppliers
+  // Filter logic
   const filteredSuppliers = React.useMemo(() => {
     return suppliers.filter((s) => {
       // Search term filter
@@ -86,7 +102,7 @@ export function SuppliersClient({ suppliers, canEdit, canPay, branchId }: Props)
     });
   }, [suppliers, searchTerm, statusFilter]);
 
-  // Sorted Suppliers
+  // Sorting logic
   const sortedSuppliers = React.useMemo(() => {
     return [...filteredSuppliers].sort((a, b) => {
       let valA: string | number = a[sortField] ?? "";
@@ -104,14 +120,13 @@ export function SuppliersClient({ suppliers, canEdit, canPay, branchId }: Props)
     });
   }, [filteredSuppliers, sortField, sortDirection]);
 
-  // Paginated Suppliers
+  // Pagination logic
   const totalPages = Math.ceil(sortedSuppliers.length / pageSize) || 1;
   const paginatedSuppliers = React.useMemo(() => {
     const start = (currentPage - 1) * pageSize;
     return sortedSuppliers.slice(start, start + pageSize);
   }, [sortedSuppliers, currentPage, pageSize]);
 
-  // Reset pagination on search / filter
   React.useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm, statusFilter, pageSize]);
@@ -160,6 +175,11 @@ export function SuppliersClient({ suppliers, canEdit, canPay, branchId }: Props)
     }
   }
 
+  function handleRowClick(supplier: SupplierWithStats) {
+    setSelectedSupplier(supplier);
+    setIsDetailOpen(true);
+  }
+
   return (
     <div className="space-y-6">
       {/* Header Section */}
@@ -185,10 +205,13 @@ export function SuppliersClient({ suppliers, canEdit, canPay, branchId }: Props)
 
         {canEdit && (
           <div className="flex items-center gap-2">
-            <Button asChild className="bg-zinc-950 hover:bg-zinc-850 dark:bg-zinc-100 dark:text-zinc-950 text-xs font-semibold shadow-xs">
+            <Button
+              asChild
+              className="bg-zinc-950 hover:bg-zinc-850 dark:bg-zinc-100 dark:text-zinc-950 text-xs font-semibold shadow-xs"
+            >
               <Link href="/suppliers/new">
                 <Plus className="mr-1.5 size-3.5" />
-                Add Supplier
+                + Add Supplier
               </Link>
             </Button>
           </div>
@@ -210,7 +233,7 @@ export function SuppliersClient({ suppliers, canEdit, canPay, branchId }: Props)
               <span className="text-2xl font-bold font-mono text-zinc-900 dark:text-zinc-50 tabular-nums">
                 {totalSuppliers}
               </span>
-              <span className="text-xs text-muted-foreground">companies registered</span>
+              <span className="text-xs text-muted-foreground">pharmaceutical distributors</span>
             </div>
           </CardContent>
         </Card>
@@ -229,7 +252,7 @@ export function SuppliersClient({ suppliers, canEdit, canPay, branchId }: Props)
                 {activeSuppliers}
               </span>
               <span className="text-xs text-muted-foreground">
-                active accounts ({Math.round((activeSuppliers / (totalSuppliers || 1)) * 100)}%)
+                active commercial contracts ({Math.round((activeSuppliers / (totalSuppliers || 1)) * 100)}%)
               </span>
             </div>
           </CardContent>
@@ -250,7 +273,7 @@ export function SuppliersClient({ suppliers, canEdit, canPay, branchId }: Props)
               </span>
               {suppliersWithDue > 0 && (
                 <span className="text-xs font-medium text-amber-600 dark:text-amber-400">
-                  across {suppliersWithDue} suppliers
+                  across {suppliersWithDue} accounts
                 </span>
               )}
             </div>
@@ -260,7 +283,7 @@ export function SuppliersClient({ suppliers, canEdit, canPay, branchId }: Props)
 
       {/* Filter and Search Bar */}
       <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3.5 rounded-xl border border-zinc-200 shadow-2xs dark:bg-zinc-950 dark:border-zinc-800">
-        {/* Search Input */}
+        {/* Search Input: "Search supplier..." */}
         <div className="relative w-full max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-zinc-400" />
           <Input
@@ -279,7 +302,7 @@ export function SuppliersClient({ suppliers, canEdit, canPay, branchId }: Props)
           )}
         </div>
 
-        {/* Filter Pills */}
+        {/* Filter Tabs */}
         <div className="flex flex-wrap items-center gap-1.5">
           {[
             { id: "all", label: "All", count: totalSuppliers },
@@ -313,13 +336,13 @@ export function SuppliersClient({ suppliers, canEdit, canPay, branchId }: Props)
         </div>
       </div>
 
-      {/* Supplier Data Table */}
+      {/* Supplier Data Table: Exactly 8 columns requested */}
       <div className="bg-white rounded-xl border border-zinc-200 shadow-2xs overflow-hidden dark:bg-zinc-950 dark:border-zinc-800">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm border-collapse">
             <thead>
               <tr className="border-b border-zinc-200 bg-zinc-50/80 text-[11px] font-semibold tracking-wider text-zinc-500 uppercase dark:border-zinc-800 dark:bg-zinc-900/50">
-                {/* Supplier */}
+                {/* 1. Supplier */}
                 <th
                   onClick={() => handleSort("name")}
                   className="py-3 px-4 min-w-[240px] cursor-pointer hover:bg-zinc-100/80 dark:hover:bg-zinc-850 transition-colors"
@@ -330,13 +353,13 @@ export function SuppliersClient({ suppliers, canEdit, canPay, branchId }: Props)
                   </div>
                 </th>
 
-                {/* Phone */}
+                {/* 2. Phone */}
                 <th className="py-3 px-3 min-w-[130px]">Phone</th>
 
-                {/* Email */}
+                {/* 3. Email */}
                 <th className="py-3 px-3 min-w-[180px]">Email</th>
 
-                {/* Total Purchases */}
+                {/* 4. Total Purchases */}
                 <th
                   onClick={() => handleSort("total_purchases")}
                   className="py-3 px-3 min-w-[130px] text-right cursor-pointer hover:bg-zinc-100/80 dark:hover:bg-zinc-850 transition-colors"
@@ -347,7 +370,7 @@ export function SuppliersClient({ suppliers, canEdit, canPay, branchId }: Props)
                   </div>
                 </th>
 
-                {/* Paid */}
+                {/* 5. Paid */}
                 <th
                   onClick={() => handleSort("paid_amount")}
                   className="py-3 px-3 min-w-[110px] text-right cursor-pointer hover:bg-zinc-100/80 dark:hover:bg-zinc-850 transition-colors"
@@ -358,7 +381,7 @@ export function SuppliersClient({ suppliers, canEdit, canPay, branchId }: Props)
                   </div>
                 </th>
 
-                {/* Outstanding */}
+                {/* 6. Outstanding */}
                 <th
                   onClick={() => handleSort("outstanding_amount")}
                   className="py-3 px-3 min-w-[120px] text-right cursor-pointer hover:bg-zinc-100/80 dark:hover:bg-zinc-850 transition-colors"
@@ -369,7 +392,7 @@ export function SuppliersClient({ suppliers, canEdit, canPay, branchId }: Props)
                   </div>
                 </th>
 
-                {/* Last Purchase */}
+                {/* 7. Last Purchase */}
                 <th
                   onClick={() => handleSort("last_purchase_date")}
                   className="py-3 px-3 min-w-[130px] text-center cursor-pointer hover:bg-zinc-100/80 dark:hover:bg-zinc-850 transition-colors"
@@ -380,18 +403,15 @@ export function SuppliersClient({ suppliers, canEdit, canPay, branchId }: Props)
                   </div>
                 </th>
 
-                {/* Status */}
-                <th className="py-3 px-3 w-24 text-center">Status</th>
-
-                {/* Actions */}
-                <th className="py-3 pr-4 pl-2 w-32 text-right">Actions</th>
+                {/* 8. Status */}
+                <th className="py-3 px-4 w-24 text-center">Status</th>
               </tr>
             </thead>
 
             <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
               {paginatedSuppliers.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-12 text-center text-muted-foreground">
+                  <td colSpan={8} className="py-12 text-center text-muted-foreground">
                     <Truck className="size-8 mx-auto mb-2 opacity-40" />
                     <p className="text-sm font-medium">No suppliers found.</p>
                     <p className="text-xs text-zinc-400 mt-0.5">
@@ -408,10 +428,10 @@ export function SuppliersClient({ suppliers, canEdit, canPay, branchId }: Props)
                   return (
                     <tr
                       key={s.id}
-                      onClick={() => router.push(`/suppliers/${s.id}`)}
+                      onClick={() => handleRowClick(s)}
                       className="group hover:bg-zinc-50/70 dark:hover:bg-zinc-900/40 cursor-pointer transition-colors"
                     >
-                      {/* Supplier Name & Avatar */}
+                      {/* 1. Supplier Name & Monogram */}
                       <td className="py-3.5 px-4">
                         <div className="flex items-center gap-3">
                           <div className="flex size-8 shrink-0 items-center justify-center rounded-md border border-zinc-200 bg-zinc-100 font-mono text-xs font-bold text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100">
@@ -422,7 +442,7 @@ export function SuppliersClient({ suppliers, canEdit, canPay, branchId }: Props)
                               <span className="font-semibold text-zinc-900 group-hover:text-zinc-950 dark:text-zinc-100 dark:group-hover:text-white truncate">
                                 {s.name}
                               </span>
-                              <ExternalLink className="size-3 opacity-0 group-hover:opacity-40 text-zinc-500 transition-opacity" />
+                              <ExternalLink className="size-3 opacity-0 group-hover:opacity-40 text-zinc-500 transition-opacity shrink-0" />
                             </div>
                             {s.address && (
                               <p className="text-xs text-muted-foreground truncate max-w-xs">
@@ -433,7 +453,7 @@ export function SuppliersClient({ suppliers, canEdit, canPay, branchId }: Props)
                         </div>
                       </td>
 
-                      {/* Phone */}
+                      {/* 2. Phone */}
                       <td className="py-3.5 px-3">
                         {s.phone ? (
                           <div
@@ -450,7 +470,7 @@ export function SuppliersClient({ suppliers, canEdit, canPay, branchId }: Props)
                         )}
                       </td>
 
-                      {/* Email */}
+                      {/* 3. Email */}
                       <td className="py-3.5 px-3">
                         {s.email ? (
                           <div
@@ -467,21 +487,21 @@ export function SuppliersClient({ suppliers, canEdit, canPay, branchId }: Props)
                         )}
                       </td>
 
-                      {/* Total Purchases */}
+                      {/* 4. Total Purchases */}
                       <td className="py-3.5 px-3 text-right">
                         <span className="font-mono text-xs font-medium text-zinc-900 dark:text-zinc-100 tabular-nums">
                           {formatCurrency(totalPurchases)}
                         </span>
                       </td>
 
-                      {/* Paid */}
+                      {/* 5. Paid */}
                       <td className="py-3.5 px-3 text-right">
                         <span className="font-mono text-xs text-zinc-600 dark:text-zinc-400 tabular-nums">
                           {formatCurrency(paid)}
                         </span>
                       </td>
 
-                      {/* Outstanding */}
+                      {/* 6. Outstanding */}
                       <td className="py-3.5 px-3 text-right">
                         <span
                           className={cn(
@@ -495,15 +515,15 @@ export function SuppliersClient({ suppliers, canEdit, canPay, branchId }: Props)
                         </span>
                       </td>
 
-                      {/* Last Purchase */}
+                      {/* 7. Last Purchase */}
                       <td className="py-3.5 px-3 text-center">
                         <span className="font-mono text-xs text-zinc-600 dark:text-zinc-400">
                           {formatDate(s.last_purchase_date)}
                         </span>
                       </td>
 
-                      {/* Status */}
-                      <td className="py-3.5 px-3 text-center">
+                      {/* 8. Status */}
+                      <td className="py-3.5 px-4 text-center">
                         <span
                           className={cn(
                             "inline-flex items-center font-mono text-[10px] font-medium px-2 py-0.5 rounded-full",
@@ -514,47 +534,6 @@ export function SuppliersClient({ suppliers, canEdit, canPay, branchId }: Props)
                         >
                           {s.is_active ? "Active" : "Inactive"}
                         </span>
-                      </td>
-
-                      {/* Actions */}
-                      <td
-                        onClick={(e) => e.stopPropagation()}
-                        className="py-3.5 pr-4 pl-2 text-right"
-                      >
-                        <div className="flex items-center justify-end gap-1">
-                          {/* Quick Payment Button if Due */}
-                          {canPay && due > 0 && branchId && (
-                            <RecordPaymentDialog
-                              kind="supplier"
-                              targetId={s.id}
-                              targetName={s.name}
-                              branchId={branchId}
-                              outstanding={due}
-                            />
-                          )}
-
-                          {/* View Detail Link */}
-                          <Button
-                            asChild
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 px-2 text-xs font-medium"
-                          >
-                            <Link href={`/suppliers/${s.id}`}>View</Link>
-                          </Button>
-
-                          {/* Edit Supplier Link */}
-                          {canEdit && (
-                            <Button
-                              asChild
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 px-2 text-xs text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100"
-                            >
-                              <Link href={`/suppliers/${s.id}/edit`}>Edit</Link>
-                            </Button>
-                          )}
-                        </div>
                       </td>
                     </tr>
                   );
@@ -577,6 +556,7 @@ export function SuppliersClient({ suppliers, canEdit, canPay, branchId }: Props)
               {filteredSuppliers.length}
             </span>
             <span>suppliers</span>
+            <span className="hidden sm:inline text-zinc-400">• Click any supplier row to inspect details</span>
           </div>
 
           <div className="flex items-center gap-3">
@@ -622,6 +602,169 @@ export function SuppliersClient({ suppliers, canEdit, canPay, branchId }: Props)
           </div>
         </div>
       </div>
+
+      {/* Slide-over Sheet for Supplier Detail */}
+      <Sheet open={isDetailOpen} onOpenChange={setIsDetailOpen}>
+        <SheetContent className="sm:max-w-xl w-full p-0 flex flex-col justify-between overflow-y-auto">
+          {selectedSupplier && (
+            <div>
+              {/* Sheet Header */}
+              <div className="p-6 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50">
+                <div className="flex items-center gap-3">
+                  <div className="size-11 rounded-lg bg-zinc-900 text-white font-mono font-bold text-sm flex items-center justify-center shrink-0 dark:bg-zinc-100 dark:text-zinc-900">
+                    {getMonogram(selectedSupplier.name)}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <SheetTitle className="text-base font-bold text-zinc-950 dark:text-zinc-50 truncate">
+                        {selectedSupplier.name}
+                      </SheetTitle>
+                      <Badge
+                        variant={selectedSupplier.is_active ? "default" : "outline"}
+                        className="text-[10px] font-mono shrink-0"
+                      >
+                        {selectedSupplier.is_active ? "Active" : "Inactive"}
+                      </Badge>
+                    </div>
+                    <SheetDescription className="text-xs text-muted-foreground truncate">
+                      {selectedSupplier.address ?? "Commercial Pharmaceutical Distributor"}
+                    </SheetDescription>
+                  </div>
+                </div>
+              </div>
+
+              {/* Sheet Content */}
+              <div className="p-6 space-y-5">
+                {/* 3 KPI Summary Cards */}
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="rounded-xl border border-zinc-200 p-3 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900/60">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground block">
+                      Total Purchases
+                    </span>
+                    <span className="text-sm font-mono font-bold text-zinc-950 dark:text-white mt-1 block tabular-nums">
+                      {formatCurrency(Number(selectedSupplier.total_purchases) || 0)}
+                    </span>
+                  </div>
+
+                  <div className="rounded-xl border border-zinc-200 p-3 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900/60">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground block">
+                      Total Paid
+                    </span>
+                    <span className="text-sm font-mono font-bold text-zinc-950 dark:text-white mt-1 block tabular-nums">
+                      {formatCurrency(Number(selectedSupplier.paid_amount) || 0)}
+                    </span>
+                  </div>
+
+                  <div className="rounded-xl border border-zinc-200 p-3 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900/60">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground block">
+                      Outstanding Due
+                    </span>
+                    <span
+                      className={cn(
+                        "text-sm font-mono font-bold mt-1 block tabular-nums",
+                        Number(selectedSupplier.outstanding_amount) > 0
+                          ? "text-amber-600 dark:text-amber-400"
+                          : "text-zinc-600 dark:text-zinc-400",
+                      )}
+                    >
+                      {formatCurrency(Number(selectedSupplier.outstanding_amount) || 0)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Contact & Profile Card */}
+                <div className="space-y-3 rounded-xl border border-zinc-200 p-4 text-xs dark:border-zinc-800">
+                  <div className="flex items-center justify-between border-b border-zinc-100 pb-2.5 dark:border-zinc-800">
+                    <span className="text-muted-foreground flex items-center gap-1.5">
+                      <Phone className="size-3.5 text-zinc-400" /> Phone:
+                    </span>
+                    <span className="font-mono font-medium text-zinc-900 dark:text-zinc-100">
+                      {selectedSupplier.phone ? (
+                        <a href={`tel:${selectedSupplier.phone}`} className="hover:underline">
+                          {selectedSupplier.phone}
+                        </a>
+                      ) : (
+                        "—"
+                      )}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between border-b border-zinc-100 pb-2.5 dark:border-zinc-800">
+                    <span className="text-muted-foreground flex items-center gap-1.5">
+                      <Mail className="size-3.5 text-zinc-400" /> Procurement Email:
+                    </span>
+                    <span className="font-mono font-medium text-zinc-900 dark:text-zinc-100">
+                      {selectedSupplier.email ? (
+                        <a href={`mailto:${selectedSupplier.email}`} className="hover:underline">
+                          {selectedSupplier.email}
+                        </a>
+                      ) : (
+                        "—"
+                      )}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between border-b border-zinc-100 pb-2.5 dark:border-zinc-800">
+                    <span className="text-muted-foreground flex items-center gap-1.5">
+                      <Calendar className="size-3.5 text-zinc-400" /> Last Consignment:
+                    </span>
+                    <span className="font-mono font-medium text-zinc-900 dark:text-zinc-100">
+                      {formatDate(selectedSupplier.last_purchase_date)}
+                    </span>
+                  </div>
+
+                  <div className="flex items-start justify-between">
+                    <span className="text-muted-foreground flex items-center gap-1.5">
+                      <MapPin className="size-3.5 text-zinc-400" /> Warehouse:
+                    </span>
+                    <span className="text-zinc-700 dark:text-zinc-300 max-w-xs text-right">
+                      {selectedSupplier.address ?? "Not recorded"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Sheet Actions Footer */}
+              <div className="p-5 border-t border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900/60 flex flex-wrap items-center justify-between gap-3">
+                <Button
+                  asChild
+                  variant="outline"
+                  size="sm"
+                  className="text-xs"
+                >
+                  <Link href={`/suppliers/${selectedSupplier.id}`}>
+                    <ExternalLink className="mr-1.5 size-3.5" />
+                    Open Full Profile
+                  </Link>
+                </Button>
+
+                <div className="flex items-center gap-2">
+                  {canPay && Number(selectedSupplier.outstanding_amount) > 0 && branchId && (
+                    <RecordPaymentDialog
+                      kind="supplier"
+                      targetId={selectedSupplier.id}
+                      targetName={selectedSupplier.name}
+                      branchId={branchId}
+                      outstanding={Number(selectedSupplier.outstanding_amount)}
+                    />
+                  )}
+
+                  <Button
+                    asChild
+                    size="sm"
+                    className="bg-zinc-950 text-white hover:bg-zinc-850 dark:bg-zinc-100 dark:text-zinc-950 text-xs font-semibold"
+                  >
+                    <Link href={`/purchases/new?supplier_id=${selectedSupplier.id}`}>
+                      <Plus className="mr-1.5 size-3.5" />
+                      New Purchase
+                    </Link>
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
