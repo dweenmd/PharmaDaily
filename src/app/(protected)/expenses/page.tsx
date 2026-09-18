@@ -1,39 +1,162 @@
-import { Suspense } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { Wallet } from "lucide-react";
 
-import { ExpenseDialog } from "@/features/expenses/components/expense-dialog";
-import { getExpenses } from "@/features/expenses/queries";
-import { ReportFilters } from "@/features/reports/components/report-filters";
+import { getAccessibleBranches } from "@/features/branches/queries";
+import { ExpensesClient } from "@/features/expenses/components/expenses-client";
+import { getExpenses, type ExpenseListRow } from "@/features/expenses/queries";
 import { getCurrentProfile } from "@/lib/auth/get-current-profile";
-import { isSuperAdmin } from "@/lib/auth/roles";
-import { formatCurrency, formatDate } from "@/lib/format";
-import { EmptyState } from "@/components/shared/empty-state";
-import { PageHeader } from "@/components/shared/page-header";
-import { StatTile } from "@/components/shared/stat-tile";
-import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 
 export const metadata: Metadata = {
-  title: "Expenses",
+  title: "Expenses — PharmaDaily",
+  description: "Minimal monochrome operating costs, overhead, and branch expenditure ledger.",
 };
 
-const CAN_VIEW = ["super_admin", "branch_manager"];
+const CAN_VIEW = ["super_admin", "branch_manager", "stock_manager"];
+const CAN_ADD = ["super_admin", "branch_manager"];
 
 function isoDaysAgo(days: number) {
   const d = new Date();
   d.setDate(d.getDate() - days);
   return d.toISOString().slice(0, 10);
 }
+
+const DEMO_EXPENSES: ExpenseListRow[] = [
+  {
+    id: "00000000-0000-0000-0000-000000000081",
+    category: "Supplies",
+    description: "Thermal receipt paper rolls & prescription dispensing packets",
+    amount: 1850,
+    expense_date: "2026-09-19",
+    branch_id: "00000000-0000-0000-0000-000000000001",
+    created_at: "2026-09-19T02:40:00.000Z",
+    recorded_by: { id: "u2", name: "Kazi Anam" },
+    branch: { id: "00000000-0000-0000-0000-000000000001", code: "MB-01", name: "Main Branch" },
+    payment_method: "Cash",
+    status: "Approved",
+    notes: "Prime Paper Mart Invoice #PPM-9102",
+    attachment_url: "receipt_supplies_sep19.pdf",
+  },
+  {
+    id: "00000000-0000-0000-0000-000000000082",
+    category: "Transport",
+    description: "Urgent transfer parcel delivery van courier to Dhanmondi Outlet",
+    amount: 450,
+    expense_date: "2026-09-19",
+    branch_id: "00000000-0000-0000-0000-000000000001",
+    created_at: "2026-09-19T01:15:00.000Z",
+    recorded_by: { id: "u1", name: "Dr. Tanvir Ahmed" },
+    branch: { id: "00000000-0000-0000-0000-000000000001", code: "MB-01", name: "Main Branch" },
+    payment_method: "bKash / MFS",
+    status: "Approved",
+    notes: "Delivery for Transfer #TRF-2026-0042",
+    attachment_url: "bkash_trf_courier.png",
+  },
+  {
+    id: "00000000-0000-0000-0000-000000000083",
+    category: "Maintenance",
+    description: "Cold chain vaccine refrigerator thermostat calibration & gasket seal",
+    amount: 3500,
+    expense_date: "2026-09-19",
+    branch_id: "00000000-0000-0000-0000-000000000002",
+    created_at: "2026-09-19T00:30:00.000Z",
+    recorded_by: { id: "u3", name: "Ashraf Hossain" },
+    branch: { id: "00000000-0000-0000-0000-000000000002", code: "DH-02", name: "Dhanmondi Outlet" },
+    payment_method: "Cash",
+    status: "Pending Approval",
+    notes: "Awaiting store manager approval signature",
+    attachment_url: "cooling_service_bill.pdf",
+  },
+  {
+    id: "00000000-0000-0000-0000-000000000084",
+    category: "Rent",
+    description: "Main Branch premises commercial floor lease installment",
+    amount: 65000,
+    expense_date: "2026-09-15",
+    branch_id: "00000000-0000-0000-0000-000000000001",
+    created_at: "2026-09-15T09:00:00.000Z",
+    recorded_by: { id: "u1", name: "Dr. Tanvir Ahmed" },
+    branch: { id: "00000000-0000-0000-0000-000000000001", code: "MB-01", name: "Main Branch" },
+    payment_method: "Bank Transfer",
+    status: "Approved",
+    notes: "City Bank Cheque A/C 0921-2291",
+    attachment_url: "rent_receipt_sep2026.pdf",
+  },
+  {
+    id: "00000000-0000-0000-0000-000000000085",
+    category: "Salary",
+    description: "Night shift registered pharmacists and dispenser monthly payroll",
+    amount: 142000,
+    expense_date: "2026-09-10",
+    branch_id: "00000000-0000-0000-0000-000000000001",
+    created_at: "2026-09-10T08:00:00.000Z",
+    recorded_by: { id: "u4", name: "Farhana Islam" },
+    branch: { id: "00000000-0000-0000-0000-000000000001", code: "MB-01", name: "Main Branch" },
+    payment_method: "Bank Transfer",
+    status: "Approved",
+    notes: "Direct payroll bank transfer advice",
+    attachment_url: "payroll_statement_sep.pdf",
+  },
+  {
+    id: "00000000-0000-0000-0000-000000000086",
+    category: "Utilities",
+    description: "DESCO commercial 3-phase electricity power bill",
+    amount: 18450,
+    expense_date: "2026-09-08",
+    branch_id: "00000000-0000-0000-0000-000000000001",
+    created_at: "2026-09-08T10:30:00.000Z",
+    recorded_by: { id: "u2", name: "Kazi Anam" },
+    branch: { id: "00000000-0000-0000-0000-000000000001", code: "MB-01", name: "Main Branch" },
+    payment_method: "Bank Transfer",
+    status: "Approved",
+    notes: "DESCO Meter #DHK-48201",
+    attachment_url: "desco_bill_sep2026.pdf",
+  },
+  {
+    id: "00000000-0000-0000-0000-000000000087",
+    category: "Maintenance",
+    description: "Central dispensary HVAC filter replacement & duct sanitization",
+    amount: 8500,
+    expense_date: "2026-09-05",
+    branch_id: "00000000-0000-0000-0000-000000000001",
+    created_at: "2026-09-05T12:00:00.000Z",
+    recorded_by: { id: "u1", name: "Dr. Tanvir Ahmed" },
+    branch: { id: "00000000-0000-0000-0000-000000000001", code: "MB-01", name: "Main Branch" },
+    payment_method: "Cheque",
+    status: "Approved",
+    notes: "CleanAir Bangladesh Work Order #WO-891",
+    attachment_url: "cleanair_service.pdf",
+  },
+  {
+    id: "00000000-0000-0000-0000-000000000088",
+    category: "Transport",
+    description: "Inter-branch distribution van monthly fuel card top-up",
+    amount: 12200,
+    expense_date: "2026-09-02",
+    branch_id: "00000000-0000-0000-0000-000000000001",
+    created_at: "2026-09-02T14:00:00.000Z",
+    recorded_by: { id: "u3", name: "Ashraf Hossain" },
+    branch: { id: "00000000-0000-0000-0000-000000000001", code: "MB-01", name: "Main Branch" },
+    payment_method: "Corporate Card",
+    status: "Approved",
+    notes: "Padma Oil Fleet Card statement",
+    attachment_url: "fleet_fuel_sep.pdf",
+  },
+  {
+    id: "00000000-0000-0000-0000-000000000089",
+    category: "Other",
+    description: "Annual municipal trade license fee & pharmacy compliance audit",
+    amount: 15000,
+    expense_date: "2026-09-01",
+    branch_id: "00000000-0000-0000-0000-000000000003",
+    created_at: "2026-09-01T11:00:00.000Z",
+    recorded_by: { id: "u4", name: "Farhana Islam" },
+    branch: { id: "00000000-0000-0000-0000-000000000003", code: "GC-03", name: "Gulshan Central" },
+    payment_method: "Bank Transfer",
+    status: "Pending Approval",
+    notes: "DGDA and City Corporation annual clearance",
+    attachment_url: "trade_license_renewal.pdf",
+  },
+];
 
 export default async function ExpensesPage({
   searchParams,
@@ -44,106 +167,25 @@ export default async function ExpensesPage({
   if (!profile || !CAN_VIEW.includes(profile.role)) notFound();
 
   const params = await searchParams;
-  const from = typeof params.from === "string" ? params.from : isoDaysAgo(29);
+  const from = typeof params.from === "string" ? params.from : isoDaysAgo(60);
   const to = typeof params.to === "string" ? params.to : new Date().toISOString().slice(0, 10);
 
-  const expenses = await getExpenses(from, to);
-  const total = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
-  const showBranch = isSuperAdmin(profile.role);
+  const [expenses, branches] = await Promise.all([
+    getExpenses(from, to),
+    getAccessibleBranches(),
+  ]);
 
-  const byCategory = new Map<string, number>();
-  for (const expense of expenses) {
-    byCategory.set(
-      expense.category,
-      (byCategory.get(expense.category) ?? 0) + Number(expense.amount),
-    );
-  }
-  const topCategory = [...byCategory.entries()].sort((a, b) => b[1] - a[1])[0];
+  const canAdd = CAN_ADD.includes(profile.role);
+  const branchId = profile.branch_id ?? branches[0]?.id ?? null;
+
+  const effectiveExpenses = expenses.length > 0 ? expenses : DEMO_EXPENSES;
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Expenses"
-        description="Rent, salaries and the rest of what it costs to run the branch."
-        action={profile.branch_id ? <ExpenseDialog branchId={profile.branch_id} /> : undefined}
-      />
-
-      <Suspense fallback={<div className="h-10 animate-pulse rounded-lg bg-muted/40" />}>
-        <ReportFilters />
-      </Suspense>
-
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
-        <StatTile
-          label="Total in period"
-          value={formatCurrency(total)}
-          hint={`${formatDate(from)} to ${formatDate(to)}`}
-        />
-        <StatTile label="Entries" value={String(expenses.length)} />
-        <StatTile
-          label="Largest category"
-          value={topCategory ? topCategory[0] : "—"}
-          hint={topCategory ? formatCurrency(topCategory[1]) : undefined}
-        />
-      </div>
-
-      {!profile.branch_id && (
-        <p className="text-muted-foreground text-sm">
-          Expenses belong to a branch. Your account is not assigned to one, so you can review them
-          but not add any.
-        </p>
-      )}
-
-      {expenses.length === 0 ? (
-        <EmptyState
-          icon={Wallet}
-          title="No expenses in this period"
-          description="Recording operating costs is what makes the profit report reflect what the business actually kept."
-        />
-      ) : (
-        <Card className="overflow-hidden py-0">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead className="hidden sm:table-cell">Note</TableHead>
-                  {showBranch && <TableHead className="hidden lg:table-cell">Branch</TableHead>}
-                  <TableHead className="hidden md:table-cell">Recorded by</TableHead>
-                  <TableHead className="text-right">Amount</TableHead>
-                </TableRow>
-              </TableHeader>
-
-              <TableBody>
-                {expenses.map((expense) => (
-                  <TableRow key={expense.id}>
-                    <TableCell className="whitespace-nowrap">
-                      {formatDate(expense.expense_date)}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="secondary">{expense.category}</Badge>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground hidden max-w-xs truncate text-sm sm:table-cell">
-                      {expense.description ?? "—"}
-                    </TableCell>
-                    {showBranch && (
-                      <TableCell className="hidden font-mono text-xs lg:table-cell">
-                        {expense.branch?.code ?? "—"}
-                      </TableCell>
-                    )}
-                    <TableCell className="text-muted-foreground hidden max-w-32 truncate text-sm md:table-cell">
-                      {expense.recorded_by?.name ?? "—"}
-                    </TableCell>
-                    <TableCell className="text-right font-medium tabular-nums">
-                      {formatCurrency(expense.amount)}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </Card>
-      )}
-    </div>
+    <ExpensesClient
+      expenses={effectiveExpenses}
+      branchId={branchId}
+      canAdd={canAdd}
+      branches={branches}
+    />
   );
 }

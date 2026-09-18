@@ -8,29 +8,49 @@ import { getCurrentProfile } from "@/lib/auth/get-current-profile";
 import { type ActionResult } from "@/features/medicines/schemas";
 
 /**
- * Preset categories, so expenses can be grouped in a report rather than
- * arriving as a hundred spellings of "electricity".
+ * Exact Categories requested:
+ * Rent, Utilities, Salary, Transport, Maintenance, Supplies, Other
  */
 export const EXPENSE_CATEGORIES = [
   "Rent",
-  "Salaries",
   "Utilities",
+  "Salary",
   "Transport",
   "Maintenance",
-  "Licences & fees",
-  "Marketing",
+  "Supplies",
+  "Other",
+] as const;
+
+export const PAYMENT_METHODS = [
+  "Cash",
+  "Bank Transfer",
+  "bKash / MFS",
+  "Cheque",
+  "Corporate Card",
   "Other",
 ] as const;
 
 export const expenseSchema = z.object({
-  category: z.enum(EXPENSE_CATEGORIES),
+  category: z.preprocess(
+    (val) => (val === "Salaries" ? "Salary" : val),
+    z.enum(EXPENSE_CATEGORIES),
+  ),
   description: z
     .string()
     .trim()
-    .max(300)
+    .max(400)
     .nullable()
     .optional()
     .transform((v) => (v === "" || v == null ? null : v)),
+  payment_method: z.string().optional().default("Cash"),
+  notes: z
+    .string()
+    .trim()
+    .max(400)
+    .nullable()
+    .optional()
+    .transform((v) => (v === "" || v == null ? null : v)),
+  attachment_name: z.string().nullable().optional(),
   amount: z.coerce.number().positive("Amount must be greater than zero"),
   expense_date: z.string().min(1, "Date is required"),
 });
@@ -51,18 +71,39 @@ export async function createExpenseAction(
   const supabase = await createClient();
   const profile = await getCurrentProfile();
 
-  const { data, error } = await supabase
+  // Combine description, payment method, notes, and attachment info for storage
+  const metadataParts: string[] = [];
+  if (parsed.data.description) metadataParts.push(parsed.data.description);
+  if (parsed.data.payment_method && parsed.data.payment_method !== "Cash") {
+    metadataParts.push(`[Payment: ${parsed.data.payment_method}]`);
+  }
+  if (parsed.data.notes) {
+    metadataParts.push(`[Notes: ${parsed.data.notes}]`);
+  }
+  if (parsed.data.attachment_name) {
+    metadataParts.push(`[Attachment: ${parsed.data.attachment_name}]`);
+  }
 
+  const finalDescription = metadataParts.length > 0 ? metadataParts.join(" ") : null;
+
+  const { data, error } = await supabase
     .from("expenses")
-    .insert({ ...parsed.data, branch_id: branchId, created_by: profile?.id ?? null })
+    .insert({
+      branch_id: branchId,
+      category: parsed.data.category,
+      description: finalDescription,
+      amount: parsed.data.amount,
+      expense_date: parsed.data.expense_date,
+      created_by: profile?.id ?? null,
+    })
     .select("id")
     .single();
 
   if (error) {
     if (error.code === "42501") {
-      return { ok: false, error: "Only a branch manager can record expenses." };
+      return { ok: false, error: "Only a branch manager or administrator can record expenses." };
     }
-    return { ok: false, error: "Could not save the expense." };
+    return { ok: false, error: "Could not save the expense record." };
   }
 
   revalidatePath("/expenses");
