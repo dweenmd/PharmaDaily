@@ -7,13 +7,19 @@ import { z } from "zod";
  * "Other" keeps the escape hatch, but forces an explanation alongside it.
  */
 export const ADJUSTMENT_REASONS = [
+  "Damaged",
+  "Expired",
+  "Found",
+  "Lost",
+  "Correction",
+  "Other",
+  // Backward compatibility with legacy entries
   "Damaged / broken",
   "Expired — removed from sale",
   "Lost or stolen",
   "Miscounted at receipt",
   "Returned to supplier",
   "Found during stock take",
-  "Other",
 ] as const;
 
 export const stockAdjustmentSchema = z
