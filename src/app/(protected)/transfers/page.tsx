@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { getAccessibleBranches } from "@/features/branches/queries";
+import { getStock } from "@/features/stock/queries";
 import { TransfersClient } from "@/features/transfers/components/transfers-client";
 import { getTransfers, type TransferListRow } from "@/features/transfers/queries";
 import { getCurrentProfile } from "@/lib/auth/get-current-profile";
@@ -20,7 +21,7 @@ const DEMO_TRANSFERS: TransferListRow[] = [
     created_at: "2026-09-19T02:30:00.000Z",
     approved_at: "2026-09-19T03:00:00.000Z",
     completed_at: null,
-    notes: "Urgent restocking of Paracetamol & Omeprazole for weekend surge",
+    notes: "En route via Delivery Van #DH-V04. Expected arrival at Dhanmondi dock in 45m.",
     rejection_reason: null,
     from_branch_id: "00000000-0000-0000-0000-000000000001",
     to_branch_id: "00000000-0000-0000-0000-000000000002",
@@ -32,13 +33,31 @@ const DEMO_TRANSFERS: TransferListRow[] = [
     items_summary: "Napa 500mg, Seclo 20mg",
   },
   {
+    id: "00000000-0000-0000-0000-000000000055",
+    reference_no: "TRF-2026-0044",
+    status: "approved", // Approved at dock awaiting vehicle loading
+    created_at: "2026-09-19T02:00:00.000Z",
+    approved_at: "2026-09-19T02:15:00.000Z",
+    completed_at: null,
+    notes: "Warehouse dock packing verified. Awaiting courier loading at Central Bay 2.",
+    rejection_reason: null,
+    from_branch_id: "00000000-0000-0000-0000-000000000003",
+    to_branch_id: "00000000-0000-0000-0000-000000000001",
+    from_branch: { id: "00000000-0000-0000-0000-000000000003", name: "Gulshan Central", code: "GC-03" },
+    to_branch: { id: "00000000-0000-0000-0000-000000000001", name: "Main Branch", code: "MB-01" },
+    requested_by: { id: "u5", name: "Farhana Islam" },
+    item_count: 1,
+    total_units: 80,
+    items_summary: "Monas 10mg",
+  },
+  {
     id: "00000000-0000-0000-0000-000000000052",
     reference_no: "TRF-2026-0041",
     status: "pending", // Requested
     created_at: "2026-09-19T01:15:00.000Z",
     approved_at: null,
     completed_at: null,
-    notes: "Antibiotic replenishment request",
+    notes: "Antibiotic replenishment request for morning ICU emergency prescriptions",
     rejection_reason: null,
     from_branch_id: "00000000-0000-0000-0000-000000000001",
     to_branch_id: "00000000-0000-0000-0000-000000000003",
@@ -56,7 +75,7 @@ const DEMO_TRANSFERS: TransferListRow[] = [
     created_at: "2026-09-18T16:00:00.000Z",
     approved_at: "2026-09-18T16:30:00.000Z",
     completed_at: "2026-09-18T18:45:00.000Z",
-    notes: "Emergency transfer delivered by courier",
+    notes: "Emergency transfer delivered by courier. Shelf verification complete.",
     rejection_reason: null,
     from_branch_id: "00000000-0000-0000-0000-000000000002",
     to_branch_id: "00000000-0000-0000-0000-000000000001",
@@ -74,8 +93,8 @@ const DEMO_TRANSFERS: TransferListRow[] = [
     created_at: "2026-09-18T11:20:00.000Z",
     approved_at: null,
     completed_at: null,
-    notes: "Routine inventory balance",
-    rejection_reason: "Insufficient on-hand shelf reserve at sending branch",
+    notes: "Routine inventory balance request",
+    rejection_reason: "Insufficient on-hand shelf reserve at sending branch dock.",
     from_branch_id: "00000000-0000-0000-0000-000000000003",
     to_branch_id: "00000000-0000-0000-0000-000000000002",
     from_branch: { id: "00000000-0000-0000-0000-000000000003", name: "Gulshan Central", code: "GC-03" },
@@ -88,10 +107,11 @@ const DEMO_TRANSFERS: TransferListRow[] = [
 ];
 
 export default async function TransfersPage() {
-  const [profile, transfers, branches] = await Promise.all([
+  const [profile, transfers, branches, stock] = await Promise.all([
     getCurrentProfile(),
     getTransfers(),
     getAccessibleBranches(),
+    getStock(),
   ]);
 
   const canRequest = profile ? CAN_REQUEST.includes(profile.role) : false;
@@ -113,6 +133,7 @@ export default async function TransfersPage() {
       canRequest={canRequest}
       myBranchId={myBranchId}
       branches={effectiveBranches}
+      stock={stock}
     />
   );
 }
