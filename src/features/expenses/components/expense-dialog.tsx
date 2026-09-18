@@ -46,10 +46,9 @@ export function ExpenseDialog({ branchId }: { branchId: string }) {
   const [error, setError] = React.useState<string | null>(null);
   const [isPending, startTransition] = React.useTransition();
 
-  const [wasOpen, setWasOpen] = React.useState(open);
-  if (wasOpen !== open) {
-    setWasOpen(open);
-    if (open) {
+  function handleOpenChange(nextOpen: boolean) {
+    setOpen(nextOpen);
+    if (nextOpen) {
       setCategory("Rent");
       setAmount(0);
       setDescription("");
@@ -81,7 +80,7 @@ export function ExpenseDialog({ branchId }: { branchId: string }) {
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button>
           <Plus className="size-4" />

@@ -64,13 +64,16 @@ export async function updateMedicineAction(
 
   const supabase = await createClient();
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("medicines")
     .update(parsed.data)
     .eq("id", id)
-    .is("deleted_at", null);
+    .is("deleted_at", null)
+    .select("id")
+    .maybeSingle();
 
   if (error) return { ok: false, error: friendlyError(error.code, error.message) };
+  if (!data) return { ok: false, error: "Medicine not found or you do not have permission to edit it." };
 
   revalidatePath("/medicines");
   revalidatePath(`/medicines/${id}/edit`);
@@ -85,16 +88,20 @@ export async function updateMedicineAction(
 export async function archiveMedicineAction(id: string): Promise<ActionResult> {
   const supabase = await createClient();
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("medicines")
     .update({ deleted_at: new Date().toISOString(), is_active: false })
-    .eq("id", id);
+    .eq("id", id)
+    .select("id")
+    .maybeSingle();
 
   if (error) return { ok: false, error: friendlyError(error.code, error.message) };
+  if (!data) return { ok: false, error: "Medicine not found or you do not have permission to archive it." };
 
   revalidatePath("/medicines");
   return { ok: true, data: undefined };
 }
+
 
 export async function createCategoryAction(input: CategoryInput): Promise<ActionResult<string>> {
   const parsed = categorySchema.safeParse(input);

@@ -46,13 +46,16 @@ export async function updateSupplierAction(
 
   // parsed.data cannot contain due_amount — the schema has no such field — so
   // there is no path from this form to the supplier ledger.
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("suppliers")
     .update(parsed.data)
     .eq("id", id)
-    .is("deleted_at", null);
+    .is("deleted_at", null)
+    .select("id")
+    .maybeSingle();
 
   if (error) return { ok: false, error: friendlyError(error.code) };
+  if (!data) return { ok: false, error: "Supplier not found or you do not have permission to edit it." };
 
   revalidatePath("/suppliers");
   revalidatePath(`/suppliers/${id}`);
@@ -81,12 +84,15 @@ export async function archiveSupplierAction(id: string): Promise<ActionResult> {
     };
   }
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("suppliers")
     .update({ deleted_at: new Date().toISOString(), is_active: false })
-    .eq("id", id);
+    .eq("id", id)
+    .select("id")
+    .maybeSingle();
 
   if (error) return { ok: false, error: friendlyError(error.code) };
+  if (!data) return { ok: false, error: "Supplier not found or you do not have permission to archive it." };
 
   revalidatePath("/suppliers");
   return { ok: true, data: undefined };

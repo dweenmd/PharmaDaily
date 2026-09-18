@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Wallet } from "lucide-react";
@@ -67,7 +68,9 @@ export default async function ExpensesPage({
         action={profile.branch_id ? <ExpenseDialog branchId={profile.branch_id} /> : undefined}
       />
 
-      <ReportFilters />
+      <Suspense fallback={<div className="h-10 animate-pulse rounded-lg bg-muted/40" />}>
+        <ReportFilters />
+      </Suspense>
 
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
         <StatTile

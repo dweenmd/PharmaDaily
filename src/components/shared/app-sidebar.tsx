@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { cn } from "@/lib/utils";
 import {
   ArrowLeftRight,
   Banknote,
@@ -214,14 +215,19 @@ export function AppSidebar({ role }: { role: UserRole }) {
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" asChild>
+            <SidebarMenuButton size="lg" asChild className="hover:bg-accent/50 transition-colors">
               <Link href="/dashboard">
-                <div className="bg-primary text-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
-                  <Pill className="size-4" />
+                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-gradient-to-br from-teal-500 to-emerald-600 text-white shadow-xs">
+                  <Pill className="size-4.5" />
                 </div>
                 <div className="grid flex-1 text-left leading-tight">
-                  <span className="truncate font-semibold">PharmaDaily</span>
-                  <span className="text-muted-foreground truncate text-xs">Pharmacy system</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="truncate font-bold tracking-tight text-foreground">PharmaDaily</span>
+                    <span className="rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-bold tracking-wide text-emerald-600 dark:text-emerald-400">
+                      POS
+                    </span>
+                  </div>
+                  <span className="text-muted-foreground truncate text-xs">Pharmacy Care</span>
                 </div>
               </Link>
             </SidebarMenuButton>
@@ -231,8 +237,10 @@ export function AppSidebar({ role }: { role: UserRole }) {
 
       <SidebarContent>
         {groups.map((group) => (
-          <SidebarGroup key={group.label}>
-            <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
+          <SidebarGroup key={group.label} className="py-1">
+            <SidebarGroupLabel className="text-[11px] font-semibold tracking-wider text-muted-foreground/80 uppercase">
+              {group.label}
+            </SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 {group.items.map((item) => {
@@ -243,17 +251,34 @@ export function AppSidebar({ role }: { role: UserRole }) {
                       {item.comingSoon ? (
                         <SidebarMenuButton
                           tooltip={`${item.title} — coming soon`}
-                          className="cursor-not-allowed opacity-50"
+                          className="cursor-not-allowed opacity-50 text-xs"
                           aria-disabled
                         >
-                          <item.icon />
+                          <item.icon className="size-4 shrink-0" />
                           <span>{item.title}</span>
                         </SidebarMenuButton>
                       ) : (
-                        <SidebarMenuButton asChild isActive={isActive} tooltip={item.title}>
-                          <Link href={item.href}>
-                            <item.icon />
-                            <span>{item.title}</span>
+                        <SidebarMenuButton
+                          asChild
+                          isActive={isActive}
+                          tooltip={item.title}
+                          className={cn(
+                            "transition-all duration-150 rounded-lg text-xs font-medium",
+                            isActive
+                              ? "bg-primary/10 text-primary font-semibold hover:bg-primary/15"
+                              : "text-foreground/80 hover:bg-accent hover:text-foreground",
+                          )}
+                        >
+                          <Link href={item.href} className="flex items-center justify-between w-full">
+                            <div className="flex items-center gap-2">
+                              <item.icon className={cn("size-4 shrink-0", isActive ? "text-primary" : "text-muted-foreground")} />
+                              <span>{item.title}</span>
+                            </div>
+                            {item.href === "/pos" && (
+                              <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[9px] font-bold text-primary">
+                                F2
+                              </span>
+                            )}
                           </Link>
                         </SidebarMenuButton>
                       )}

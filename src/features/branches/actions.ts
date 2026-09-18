@@ -44,13 +44,16 @@ export async function updateBranchAction(
 
   const supabase = await createClient();
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("branches")
     .update(parsed.data)
     .eq("id", id)
-    .is("deleted_at", null);
+    .is("deleted_at", null)
+    .select("id")
+    .maybeSingle();
 
   if (error) return { ok: false, error: friendly(error.code) };
+  if (!data) return { ok: false, error: "Branch not found or you do not have permission to edit it." };
 
   revalidatePath("/branches");
   revalidatePath(`/branches/${id}/edit`);
@@ -74,6 +77,7 @@ export async function deactivateBranchAction(id: string): Promise<ActionResult> 
       .select("id", { count: "exact", head: true })
       .eq("branch_id", id)
       .gt("quantity", 0),
+
     supabase
       .from("profiles")
       .select("id", { count: "exact", head: true })
@@ -96,9 +100,15 @@ export async function deactivateBranchAction(id: string): Promise<ActionResult> 
     };
   }
 
-  const { error } = await supabase.from("branches").update({ is_active: false }).eq("id", id);
+  const { data, error } = await supabase
+    .from("branches")
+    .update({ is_active: false })
+    .eq("id", id)
+    .select("id")
+    .maybeSingle();
 
   if (error) return { ok: false, error: friendly(error.code) };
+  if (!data) return { ok: false, error: "Branch not found or you do not have permission to deactivate it." };
 
   revalidatePath("/branches");
   return { ok: true, data: undefined };

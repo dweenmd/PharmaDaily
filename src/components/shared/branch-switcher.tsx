@@ -43,11 +43,15 @@ export function BranchSwitcher({
 
   if (!canSwitch) {
     return (
-      <div className="text-muted-foreground flex min-w-0 items-center gap-2 text-sm">
-        <Building2 className="size-4 shrink-0" />
+      <div className="flex min-w-0 items-center gap-2 text-sm">
+        <span className="relative flex size-2">
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+          <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
+        </span>
+        <Building2 className="size-4 shrink-0 text-muted-foreground" />
         <span className="text-foreground truncate font-medium">{activeLabel}</span>
         {active && (
-          <span className="bg-muted rounded px-1.5 py-0.5 font-mono text-[10px] tracking-wide">
+          <span className="bg-primary/10 text-primary border border-primary/20 rounded-md px-1.5 py-0.5 font-mono text-[10px] font-semibold tracking-wide">
             {active.code}
           </span>
         )}

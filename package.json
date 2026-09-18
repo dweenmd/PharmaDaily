@@ -16,10 +16,12 @@
     "db:push": "supabase db push",
     "db:types": "supabase gen types typescript --local > src/types/database.types.ts",
     "seed:admin": "tsx scripts/seed-super-admin.ts",
+    "seed:master-data": "tsx scripts/seed-master-data.ts",
     "verify:rls": "tsx scripts/verify-rls.ts",
     "verify:tx": "tsx scripts/verify-transactions.ts",
     "verify:staff": "tsx scripts/verify-staff-authority.ts"
   },
+
   "dependencies": {
     "@base-ui/react": "^1.8.0",
     "@hookform/resolvers": "^5.9.1",

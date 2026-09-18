@@ -168,14 +168,14 @@ export function CustomerDialog({ open, onOpenChange, customers, selected, onSele
             </div>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-4">
             <div className="relative">
-              <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
+              <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2" />
               <Input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search by name, phone or email…"
-                className="pl-9"
+                placeholder="Search by customer name, phone or email…"
+                className="pl-10 h-10 rounded-xl"
                 autoFocus
               />
             </div>

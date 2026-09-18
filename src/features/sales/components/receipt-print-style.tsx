@@ -23,6 +23,10 @@ export function ReceiptPrintStyle({ paperSize }: { paperSize: ReceiptPaperSize }
           size: ${PAGE_SIZE[paperSize]};
           margin: ${paperSize === "a4" ? "12mm" : "2mm"};
         }
+        body {
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
       }
     `}</style>
   );

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Boxes } from "lucide-react";
+import { Boxes, PlusCircle, ReceiptText } from "lucide-react";
 
 import { PosTerminal } from "@/features/sales/components/pos-terminal";
 import { getSellableStock } from "@/features/sales/queries";
@@ -9,10 +9,11 @@ import { getCurrentProfile } from "@/lib/auth/get-current-profile";
 import { createClient } from "@/lib/supabase/server";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
 export const metadata: Metadata = {
-  title: "POS",
+  title: "POS Billing",
 };
 
 const CAN_SELL = ["super_admin", "branch_manager", "cashier", "pharmacist"];
@@ -85,10 +86,50 @@ export default async function PosPage() {
 
   return (
     <div className="space-y-4">
-      <PageHeader
-        title="Point of sale"
-        description={`${profile.branch.name} · ${stock.length} batches available`}
-      />
+      {/* Modern POS Counter Header */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b pb-3.5">
+        <div>
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
+              POS Billing Terminal
+            </h1>
+            <Badge
+              variant="outline"
+              className="gap-1.5 border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold text-xs px-2.5 py-0.5"
+            >
+              <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              Counter Ready
+            </Badge>
+          </div>
+          <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-2">
+            <span className="font-semibold text-foreground/85">{profile.branch.name}</span>
+            <span>•</span>
+            <span className="text-primary font-medium">{stock.length} batches available in stock</span>
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button asChild variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
+            <Link href="/sales">
+              <ReceiptText className="size-3.5 text-muted-foreground" />
+              Sales History
+            </Link>
+          </Button>
+          <Button asChild variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
+            <Link href="/stock">
+              <Boxes className="size-3.5 text-muted-foreground" />
+              Inventory Stock
+            </Link>
+          </Button>
+          <Button asChild variant="outline" size="sm" className="hidden md:inline-flex h-8 gap-1.5 text-xs">
+            <Link href="/purchases/new">
+              <PlusCircle className="size-3.5 text-muted-foreground" />
+              New Consignment
+            </Link>
+          </Button>
+        </div>
+      </div>
+
       <PosTerminal
         branchId={profile.branch_id}
         branchName={profile.branch.name}

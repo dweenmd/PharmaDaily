@@ -16,16 +16,20 @@ import { Button } from "@/components/ui/button";
  */
 export function InvoiceActions({ isNewSale }: { isNewSale: boolean }) {
   return (
-    <div className="flex flex-wrap gap-2 print:hidden">
-      <Button onClick={() => window.print()}>
-        <Printer className="size-4" />
-        Print / Save PDF
+    <div className="flex flex-wrap items-center gap-2 print:hidden">
+      <Button
+        onClick={() => window.print()}
+        className="h-8 gap-1.5 text-xs font-semibold shadow-xs bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white border-0"
+      >
+        <Printer className="size-3.5" />
+        Print Invoice
       </Button>
 
-      <Button asChild variant={isNewSale ? "default" : "outline"}>
+      <Button asChild variant="outline" size="sm" className="h-8 gap-1.5 text-xs font-semibold">
         <Link href="/pos">
-          <ShoppingCart className="size-4" />
+          <ShoppingCart className="size-3.5" />
           New Sale
+          <span className="rounded bg-muted px-1.5 py-0.2 text-[9px] font-bold">F2</span>
         </Link>
       </Button>
     </div>

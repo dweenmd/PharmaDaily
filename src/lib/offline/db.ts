@@ -29,6 +29,8 @@ export type CachedBatch = {
   generic_name: string | null;
   strength: string | null;
   unit: string | null;
+  dosage_form: string | null;
+  manufacturer: string | null;
   barcode: string | null;
   prescription_required: boolean;
   controlled_drug: boolean;

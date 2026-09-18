@@ -74,60 +74,92 @@ export default async function DashboardPage({
   const nearExpiry = Number(kpis.near_expiry_count);
   const expired = Number(kpis.expired_count);
 
+  const todayFormatted = new Intl.DateTimeFormat("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  }).format(new Date());
+
+  const branchDisplayName = superAdmin
+    ? activeBranch
+      ? activeBranch.name
+      : "All Branches"
+    : profile.branch?.name ?? "Unassigned";
+
   return (
     <div className="space-y-6">
-      <PageHeader
-        title={`Good day, ${profile.name.split(" ")[0]}`}
-        description={
-          superAdmin
-            ? activeBranch
-              ? `Viewing ${activeBranch.name}.`
-              : "Viewing every branch."
-            : `${profile.branch?.name ?? "Unassigned"} · ${ROLE_LABELS[profile.role]}`
-        }
-        action={
-          <>
-            {/* The primary button is the job, not the analysis of the job:
-                anyone who can sell lands here and then goes to the till. */}
+      {/* Hero Welcome Banner */}
+      <div className="relative overflow-hidden rounded-2xl border border-border/80 bg-gradient-to-br from-card via-card to-accent/30 p-5 sm:p-6 shadow-xs">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="space-y-1.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                {branchDisplayName}
+              </span>
+              <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+                {ROLE_LABELS[profile.role]}
+              </span>
+              <span className="text-xs text-muted-foreground hidden sm:inline-block">
+                • {todayFormatted}
+              </span>
+            </div>
+            <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+              Welcome back, {profile.name.split(" ")[0]}
+            </h1>
+            <p className="text-sm text-muted-foreground max-w-xl">
+              Here is your branch performance and real-time inventory overview for today.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
             {canSell && (
-              <Button asChild>
+              <Button asChild size="default" className="shadow-xs font-medium">
                 <Link href="/pos">
-                  <ShoppingCart className="size-4" />
-                  New sale
+                  <ShoppingCart className="size-4 mr-1.5" />
+                  Point of Sale
+                  <span className="ml-2 rounded bg-primary-foreground/20 px-1.5 py-0.5 text-[10px] font-bold">F2</span>
                 </Link>
               </Button>
             )}
             {canViewReports && (
-              <Button asChild variant="outline">
+              <Button asChild variant="outline" size="default" className="shadow-xs font-medium">
                 <Link href="/reports/sales">
-                  <BarChart3 className="size-4" />
+                  <BarChart3 className="size-4 mr-1.5 text-muted-foreground" />
                   Reports
                 </Link>
               </Button>
             )}
-          </>
-        }
-      />
-
-      {/* Branch selector. Only a super admin sees it — everyone else has exactly
-          one branch, and offering a choice of one is noise. */}
-      {superAdmin && branches.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2">
-          <Button asChild variant={branchFilter === null ? "default" : "outline"} size="sm">
-            <Link href="/dashboard">All branches</Link>
-          </Button>
-          {branches.map((branch) => (
-            <Button
-              key={branch.id}
-              asChild
-              variant={branchFilter === branch.id ? "default" : "outline"}
-              size="sm"
-            >
-              <Link href={`/dashboard?branch=${branch.id}`}>{branch.name}</Link>
-            </Button>
-          ))}
+          </div>
         </div>
-      )}
+
+        {/* Super admin branch filter pills */}
+        {superAdmin && branches.length > 0 && (
+          <div className="mt-4 pt-4 border-t border-border/50 flex flex-wrap items-center gap-1.5">
+            <span className="text-xs font-medium text-muted-foreground mr-1">Filter branch:</span>
+            <Button
+              asChild
+              variant={branchFilter === null ? "default" : "ghost"}
+              size="xs"
+              className="rounded-full text-xs"
+            >
+              <Link href="/dashboard">All</Link>
+            </Button>
+            {branches.map((b) => (
+              <Button
+                key={b.id}
+                asChild
+                variant={branchFilter === b.id ? "default" : "ghost"}
+                size="xs"
+                className="rounded-full text-xs"
+              >
+                <Link href={`/dashboard?branch=${b.id}`}>{b.name}</Link>
+              </Button>
+            ))}
+          </div>
+        )}
+      </div>
 
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <StatTile
@@ -162,9 +194,12 @@ export default async function DashboardPage({
         />
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Revenue and profit, last 30 days</CardTitle>
+      <Card className="rounded-xl border border-border/80 bg-card shadow-xs">
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base font-semibold">Revenue and profit, last 30 days</CardTitle>
+            <span className="rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground font-medium">Daily trend</span>
+          </div>
           <CardDescription>
             Profit uses the cost recorded on each sale line at the time it was sold.
           </CardDescription>

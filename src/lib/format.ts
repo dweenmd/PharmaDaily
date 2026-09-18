@@ -118,3 +118,37 @@ export function stockLevel(quantity: number, reorderLevel: number): StockLevel {
   if (quantity <= reorderLevel) return "low";
   return "ok";
 }
+
+const ONES = [
+  "", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine",
+  "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen",
+  "Seventeen", "Eighteen", "Nineteen",
+];
+const TENS = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
+
+function numToWords(n: number): string {
+  if (n === 0) return "";
+  if (n < 20) return ONES[n] ?? "";
+  if (n < 100) return `${TENS[Math.floor(n / 10)] ?? ""} ${ONES[n % 10] ?? ""}`.trim();
+  if (n < 1000) {
+    return `${ONES[Math.floor(n / 100)] ?? ""} Hundred ${numToWords(n % 100)}`.trim();
+  }
+  if (n < 100000) {
+    return `${numToWords(Math.floor(n / 1000))} Thousand ${numToWords(n % 1000)}`.trim();
+  }
+  if (n < 10000000) {
+    return `${numToWords(Math.floor(n / 100000))} Lakh ${numToWords(n % 100000)}`.trim();
+  }
+  return `${numToWords(Math.floor(n / 10000000))} Crore ${numToWords(n % 10000000)}`.trim();
+}
+
+/** Convert amount to words in Taka & Paisa for professional invoices. */
+export function amountInWords(amount: number): string {
+  if (amount <= 0) return "Zero Taka Only";
+  const taka = Math.floor(amount);
+  const paisa = Math.round((amount - taka) * 100);
+
+  const takaStr = numToWords(taka) + " Taka";
+  const paisaStr = paisa > 0 ? ` and ${numToWords(paisa)} Paisa` : "";
+  return `${takaStr}${paisaStr} Only`;
+}

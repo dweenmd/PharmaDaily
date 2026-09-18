@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentProfile } from "@/lib/auth/get-current-profile";
 import { type ActionResult } from "@/features/medicines/schemas";
 
 /**
@@ -48,15 +49,10 @@ export async function createExpenseAction(
   }
 
   const supabase = await createClient();
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("id")
-    .eq("is_active", true)
-    .is("deleted_at", null)
-    .maybeSingle();
+  const profile = await getCurrentProfile();
 
   const { data, error } = await supabase
+
     .from("expenses")
     .insert({ ...parsed.data, branch_id: branchId, created_by: profile?.id ?? null })
     .select("id")

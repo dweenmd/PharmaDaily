@@ -19,4 +19,6 @@ export default serwist.withNextConfig((nextConfig) => ({
   // Precache the static shell only. Prerendered HTML is deliberately
   // excluded — see the comment in src/app/sw.ts about shared till devices.
   precachePrerendered: false,
+  additionalPrecacheEntries: [{ url: "/offline", revision: "1" }],
 }));
+

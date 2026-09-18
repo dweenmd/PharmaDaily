@@ -11,6 +11,8 @@ export type SellableBatch = {
   generic_name: string | null;
   strength: string | null;
   unit: string | null;
+  dosage_form: string | null;
+  manufacturer: string | null;
   barcode: string | null;
   prescription_required: boolean;
   controlled_drug: boolean;
@@ -52,7 +54,7 @@ export const getSellableStock = cache(async (): Promise<SellableBatch[]> => {
         id, medicine_id, batch_no, expiry_date, quantity, reserved_quantity,
         selling_price, mrp,
         medicine:medicines (
-          id, name, generic_name, strength, unit, barcode,
+          id, name, generic_name, strength, unit, dosage_form, manufacturer, barcode,
           prescription_required, controlled_drug, is_active
         )
       `,
@@ -73,6 +75,8 @@ export const getSellableStock = cache(async (): Promise<SellableBatch[]> => {
         generic_name: string | null;
         strength: string | null;
         unit: string | null;
+        dosage_form: string | null;
+        manufacturer: string | null;
         barcode: string | null;
         prescription_required: boolean;
         controlled_drug: boolean;
@@ -88,6 +92,8 @@ export const getSellableStock = cache(async (): Promise<SellableBatch[]> => {
         generic_name: medicine.generic_name,
         strength: medicine.strength,
         unit: medicine.unit,
+        dosage_form: medicine.dosage_form,
+        manufacturer: medicine.manufacturer,
         barcode: medicine.barcode,
         prescription_required: medicine.prescription_required,
         controlled_drug: medicine.controlled_drug,
@@ -162,7 +168,7 @@ export const getSaleById = cache(async (id: string) => {
         branch:branches ( id, name, code, address, phone ),
         items:sale_items (
           id, batch_no, quantity, unit_price, total_price, branch_stock_id,
-          medicine:medicines ( id, name, strength, unit )
+          medicine:medicines ( id, name, strength, unit, generic_name )
         ),
         payments ( id, method, amount, reference, created_at )
       `,
@@ -216,6 +222,7 @@ export const getSaleById = cache(async (id: string) => {
         name: string;
         strength: string | null;
         unit: string | null;
+        generic_name: string | null;
       } | null,
       returned_quantity: returnedByItem.get(item.id) ?? 0,
     })),

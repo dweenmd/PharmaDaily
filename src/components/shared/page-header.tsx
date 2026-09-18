@@ -15,15 +15,15 @@ export function PageHeader({ title, description, action, className }: Props) {
   return (
     <div
       className={cn(
-        "flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between",
+        "flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pb-1",
         className,
       )}
     >
       <div className="min-w-0 space-y-1">
-        <h1 className="truncate text-2xl font-semibold tracking-tight">{title}</h1>
-        {description && <p className="text-muted-foreground text-sm">{description}</p>}
+        <h1 className="truncate text-2xl font-bold tracking-tight text-foreground sm:text-3xl">{title}</h1>
+        {description && <p className="text-muted-foreground text-sm leading-relaxed">{description}</p>}
       </div>
-      {action && <div className="flex shrink-0 items-center gap-2">{action}</div>}
+      {action && <div className="flex shrink-0 items-center gap-2.5">{action}</div>}
     </div>
   );
 }
