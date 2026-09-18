@@ -70,8 +70,8 @@ export function StatTile({
       </div>
 
       {/* Steps down a size on phones: two tiles side by side at 360px leave
-          about 150px each, and "BDT 12,500.00" at text-2xl does not fit in
-          that without wrapping mid-number. */}
+          about 150px each, and "৳12,500.00" at text-2xl does not fit in that
+          without wrapping mid-number. */}
       <p className="text-xl leading-tight font-semibold sm:text-2xl">{value}</p>
 
       <div className="flex items-center gap-1.5">

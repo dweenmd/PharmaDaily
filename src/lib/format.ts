@@ -6,12 +6,33 @@
  * looks.
  */
 
-const BDT = new Intl.NumberFormat("en-BD", {
-  style: "currency",
-  currency: "BDT",
+/**
+ * Digits and grouping only — the ৳ is added by hand below.
+ *
+ * `style: "currency"` with BDT renders "BDT 1,250.00" in every runtime this
+ * app actually runs in, which is banking notation nobody at a pharmacy
+ * counter writes, and three characters wider than the symbol in every table
+ * cell and tile on every screen. `currencyDisplay: "narrowSymbol"` does give
+ * ৳, but it depends on ICU data that an older tablet browser may not carry —
+ * and a server and client that disagree about a price is a hydration
+ * mismatch. Prefixing the symbol ourselves is the same output everywhere.
+ *
+ * Grouping stays Western (12,500,000) rather than lakh-style (1,25,00,000)
+ * to match the Latin digits used throughout the UI; Bengali numerals are a
+ * localisation decision, not a formatting one.
+ */
+const AMOUNT = new Intl.NumberFormat("en-BD", {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 });
+
+export const CURRENCY_SYMBOL = "৳";
+
+function withSymbol(n: number): string {
+  // The sign leads, as in -৳50.00: a minus tucked between symbol and digits
+  // is easy to miss on a refund line.
+  return n < 0 ? `-${CURRENCY_SYMBOL}${AMOUNT.format(Math.abs(n))}` : `${CURRENCY_SYMBOL}${AMOUNT.format(n)}`;
+}
 
 /**
  * Amounts arrive from PostgREST as strings, because numeric(14,2) does not fit
@@ -19,9 +40,9 @@ const BDT = new Intl.NumberFormat("en-BD", {
  * wherever the exact value matters.
  */
 export function formatCurrency(value: number | string | null | undefined): string {
-  if (value === null || value === undefined || value === "") return BDT.format(0);
+  if (value === null || value === undefined || value === "") return withSymbol(0);
   const n = typeof value === "string" ? Number.parseFloat(value) : value;
-  return Number.isFinite(n) ? BDT.format(n) : BDT.format(0);
+  return Number.isFinite(n) ? withSymbol(n) : withSymbol(0);
 }
 
 export function toNumber(value: number | string | null | undefined): number {
