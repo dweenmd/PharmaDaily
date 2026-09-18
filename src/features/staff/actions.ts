@@ -360,3 +360,49 @@ export async function changeOwnPasswordAction(
 
   return { ok: true, data: undefined };
 }
+
+// ---------------------------------------------------------------------------
+
+/**
+ * Toggles a staff member's active status (Deactivate / Reactivate).
+ * Enforces lockout prevention and authority hierarchy.
+ */
+export async function toggleStaffActiveAction(
+  profileId: string,
+  isActive: boolean,
+): Promise<ActionResult> {
+  const authority = await requireStaffAuthority();
+  if ("error" in authority) return { ok: false, error: authority.error };
+
+  const admin = createAdminClient();
+
+  const { data: target } = await admin
+    .from("profiles")
+    .select("id, role, branch_id, is_active")
+    .eq("id", profileId)
+    .maybeSingle();
+
+  if (!target) return { ok: false, error: "That account no longer exists." };
+
+  const refusal = canActOn(authority, target);
+  if (refusal) return { ok: false, error: refusal };
+
+  const lockout = checkLockout(
+    authority,
+    target,
+    { role: target.role, isActive },
+    await countActiveSuperAdmins(profileId),
+  );
+
+  if (lockout) return { ok: false, error: lockout };
+
+  const { error } = await admin
+    .from("profiles")
+    .update({ is_active: isActive })
+    .eq("id", profileId);
+
+  if (error) return { ok: false, error: "Could not update account status." };
+
+  revalidatePath("/staff");
+  return { ok: true, data: undefined };
+}

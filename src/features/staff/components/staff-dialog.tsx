@@ -46,6 +46,9 @@ type Props = {
   ownBranchId: string | null;
   /** Present when editing. */
   staff?: StaffRow;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  trigger?: React.ReactNode;
 };
 
 /** A password the admin does not have to invent, and will not reuse. */
@@ -56,11 +59,23 @@ function suggestPassword() {
   return Array.from(bytes, (b) => alphabet[b % alphabet.length]).join("");
 }
 
-export function StaffDialog({ branches, isSuperAdmin, ownBranchId, staff }: Props) {
+export function StaffDialog({
+  branches,
+  isSuperAdmin,
+  ownBranchId,
+  staff,
+  open: controlledOpen,
+  onOpenChange: setControlledOpen,
+  trigger,
+}: Props) {
   const router = useRouter();
   const isEdit = Boolean(staff);
 
-  const [open, setOpen] = React.useState(false);
+  const [internalOpen, setInternalOpen] = React.useState(false);
+  const isControlled = typeof controlledOpen === "boolean";
+  const open = isControlled ? controlledOpen : internalOpen;
+  const setOpen = isControlled ? (setControlledOpen ?? (() => {})) : setInternalOpen;
+
   const [error, setError] = React.useState<string | null>(null);
   const [isPending, startTransition] = React.useTransition();
 
@@ -135,18 +150,22 @@ export function StaffDialog({ branches, isSuperAdmin, ownBranchId, staff }: Prop
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {isEdit ? (
-          <Button variant="ghost" size="sm">
-            Edit
-          </Button>
-        ) : (
-          <Button>
-            <Plus className="size-4" />
-            Add staff
-          </Button>
-        )}
-      </DialogTrigger>
+      {trigger !== null && (
+        <DialogTrigger asChild>
+          {trigger ? (
+            trigger
+          ) : isEdit ? (
+            <Button variant="ghost" size="sm">
+              Edit
+            </Button>
+          ) : (
+            <Button className="h-9 gap-1.5 text-xs font-semibold bg-zinc-950 text-white dark:bg-zinc-100 dark:text-zinc-950 shadow-xs cursor-pointer">
+              <Plus className="size-4" />
+              <span>+ Add Staff</span>
+            </Button>
+          )}
+        </DialogTrigger>
+      )}
 
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
@@ -341,9 +360,23 @@ export function StaffDialog({ branches, isSuperAdmin, ownBranchId, staff }: Prop
 
 // ---------------------------------------------------------------------------
 
-export function ResetPasswordDialog({ staff }: { staff: StaffRow }) {
+export function ResetPasswordDialog({
+  staff,
+  open: controlledOpen,
+  onOpenChange: setControlledOpen,
+  trigger,
+}: {
+  staff: StaffRow;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  trigger?: React.ReactNode;
+}) {
   const router = useRouter();
-  const [open, setOpen] = React.useState(false);
+  const [internalOpen, setInternalOpen] = React.useState(false);
+  const isControlled = typeof controlledOpen === "boolean";
+  const open = isControlled ? controlledOpen : internalOpen;
+  const setOpen = isControlled ? (setControlledOpen ?? (() => {})) : setInternalOpen;
+
   const [password, setPassword] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
   const [isPending, startTransition] = React.useTransition();
@@ -359,15 +392,21 @@ export function ResetPasswordDialog({ staff }: { staff: StaffRow }) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button
-          variant="ghost"
-          size="sm"
-          aria-label={`${staff.password_set ? "Reset" : "Set"} password for ${staff.name}`}
-        >
-          <KeyRound className="size-4" />
-        </Button>
-      </DialogTrigger>
+      {trigger !== null && (
+        <DialogTrigger asChild>
+          {trigger ? (
+            trigger
+          ) : (
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-label={`${staff.password_set ? "Reset" : "Set"} password for ${staff.name}`}
+            >
+              <KeyRound className="size-4" />
+            </Button>
+          )}
+        </DialogTrigger>
+      )}
 
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
