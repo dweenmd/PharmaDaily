@@ -69,6 +69,7 @@ import {
 } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { saveSettingsBatchAction } from "@/features/settings/actions";
+import { PosSettingsView } from "./pos-settings-view";
 
 // ---------------------------------------------------------------------------
 // TYPES
@@ -114,6 +115,7 @@ type Props = {
   branchId: string | null;
   branchName: string | null;
   isSuperAdmin: boolean;
+  initialTab?: SettingsTabId;
 };
 
 export function SettingsWorkspace({
@@ -121,9 +123,10 @@ export function SettingsWorkspace({
   branchId,
   branchName,
   isSuperAdmin,
+  initialTab = "pharmacy",
 }: Props) {
   const router = useRouter();
-  const [activeTab, setActiveTab] = React.useState<SettingsTabId>("pharmacy");
+  const [activeTab, setActiveTab] = React.useState<SettingsTabId>(initialTab);
   const [isPending, startTransition] = React.useTransition();
 
   // Form State initialized with defaults or database values
@@ -581,46 +584,13 @@ export function SettingsWorkspace({
           {/* TAB 3: POS */}
           {/* =============================================================== */}
           {activeTab === "pos" && (
-            <div className="p-6 space-y-6">
-              <div className="border-b border-border/40 pb-4 space-y-1">
-                <h2 className="text-sm font-bold uppercase tracking-wider text-foreground">
-                  POINT OF SALE (POS) SETTINGS
-                </h2>
-                <p className="text-xs text-muted-foreground">
-                  Till operations, barcode scanning sensitivity, and retail checkout behavior.
-                </p>
-              </div>
-
-              <div className="space-y-4 max-w-2xl">
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold">Barcode Scanner Keycode Mode</Label>
-                  <Select defaultValue="enter_suffix">
-                    <SelectTrigger className="h-9 text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="enter_suffix">Automatic Enter Key Suffix (HID Standard)</SelectItem>
-                      <SelectItem value="tab_suffix">Tab Key Suffix</SelectItem>
-                      <SelectItem value="manual">Manual Submission / Click to Add</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold">Return & Refund Grace Window</Label>
-                  <Select defaultValue="7_days">
-                    <SelectTrigger className="h-9 text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="same_day">Same Day Only (Shift Closing)</SelectItem>
-                      <SelectItem value="3_days">Up to 3 Days with Receipt</SelectItem>
-                      <SelectItem value="7_days">Up to 7 Days with Receipt (Standard)</SelectItem>
-                      <SelectItem value="14_days">Up to 14 Days (Unopened blister packs)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
+            <div className="p-6">
+              <PosSettingsView
+                initialValues={initialValues}
+                branchId={branchId}
+                branchName={branchName}
+                isSuperAdmin={isSuperAdmin}
+              />
             </div>
           )}
 
