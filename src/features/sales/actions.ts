@@ -161,3 +161,42 @@ export async function getSaleDetailAction(id: string) {
   }
   return { ok: true, data: sale } as const;
 }
+
+/** Checks for existing duplicate customers by phone or email. */
+export async function checkCustomerDuplicateAction({
+  phone,
+  email,
+}: {
+  phone?: string | null;
+  email?: string | null;
+}) {
+  const supabase = await createClient();
+  const filters: string[] = [];
+  const cleanPhone = phone?.trim();
+  const cleanEmail = email?.trim().toLowerCase();
+
+  if (cleanPhone && cleanPhone.length >= 4) {
+    filters.push(`phone.eq.${cleanPhone}`);
+  }
+  if (cleanEmail && cleanEmail.includes("@")) {
+    filters.push(`email.ilike.${cleanEmail}`);
+  }
+
+  if (filters.length === 0) {
+    return { ok: true, data: null };
+  }
+
+  const { data, error } = await supabase
+    .from("customers")
+    .select("id, name, phone, email, due_amount, address, is_active, created_at")
+    .or(filters.join(","))
+    .is("deleted_at", null)
+    .limit(1)
+    .maybeSingle();
+
+  if (error || !data) {
+    return { ok: true, data: null };
+  }
+
+  return { ok: true, data: { ...data, due_amount: Number(data.due_amount) } };
+}
