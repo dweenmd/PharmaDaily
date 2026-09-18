@@ -1005,12 +1005,18 @@ export function StaffManagementClient({
       {/* =================================================================== */}
       {/* 6. EDIT STAFF DIALOG (When triggered from table or drawer) */}
       {/* =================================================================== */}
-      {editingStaff && editDialogOpen && (
+      {editingStaff && (
         <StaffDialog
           branches={branches}
           isSuperAdmin={isSuperAdmin}
           ownBranchId={ownBranchId}
           staff={editingStaff}
+          open={editDialogOpen}
+          onOpenChange={(isOpen) => {
+            setEditDialogOpen(isOpen);
+            if (!isOpen) setEditingStaff(null);
+          }}
+          trigger={null}
         />
       )}
 
@@ -1020,13 +1026,12 @@ export function StaffManagementClient({
       {resetStaff && (
         <ResetPasswordDialog
           staff={resetStaff}
-          trigger={
-            <button
-              id="hidden-reset-trigger"
-              style={{ display: "none" }}
-              aria-hidden="true"
-            />
-          }
+          open={resetDialogOpen}
+          onOpenChange={(isOpen) => {
+            setResetDialogOpen(isOpen);
+            if (!isOpen) setResetStaff(null);
+          }}
+          trigger={null}
         />
       )}
     </div>
