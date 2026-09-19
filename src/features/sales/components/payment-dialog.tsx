@@ -21,6 +21,7 @@ import {
   type SalePaymentInput,
 } from "@/features/sales/schemas";
 import { type PosCustomer } from "@/features/sales/components/customer-dialog";
+import { printThermalReceipt } from "@/features/sales/lib/print-thermal-receipt";
 import { formatCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -158,7 +159,40 @@ export function PaymentDialog({
     if (onPrintReceipt) {
       onPrintReceipt();
     } else if (typeof window !== "undefined") {
-      window.print();
+      printThermalReceipt(
+        {
+          invoice_no: invoiceNumber,
+          date_time:
+            new Date().toLocaleDateString() +
+            " " +
+            new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          branch_name: "PharmaDaily Pharmacy",
+          branch_address: "742 Satmasjid Road, Dhanmondi, Dhaka",
+          branch_phone: "+880 1700-000000",
+          bin_no: "002391029-0101",
+          drug_lic: "DL-DHK-2024-8891",
+          cashier_name: "Counter Cashier",
+          counter: "Counter 01",
+          customer_name: customer?.name || "Walk-in Customer",
+          customer_phone: customer?.phone || undefined,
+          items: [
+            {
+              name: "Prescription Medicines & Supplies",
+              quantity: 1,
+              unit_price: effectiveTotal,
+              total: effectiveTotal,
+            },
+          ],
+          subtotal: effectiveTotal,
+          discount: 0,
+          tax: 0,
+          grand_total: effectiveTotal,
+          payment_method: activeMethod.toUpperCase(),
+          amount_received: cashReceived > 0 ? cashReceived : effectiveTotal,
+          change: change > 0 ? change : 0,
+        },
+        "80mm"
+      );
     }
   };
 

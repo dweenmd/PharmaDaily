@@ -22,6 +22,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { getSaleDetailAction } from "@/features/sales/actions";
+import { PosThermalReceipt, type PosReceiptData } from "@/features/sales/components/pos-thermal-receipt";
+import { ReceiptPreviewDialog } from "@/features/sales/components/receipt-preview-dialog";
 import { amountInWords, formatCurrency, formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -286,6 +288,8 @@ export function SaleDetailDrawer({
     };
   }, [open, saleId, initialData]);
 
+  const [receiptPreviewOpen, setReceiptPreviewOpen] = React.useState(false);
+
   const handleCopy = () => {
     if (!sale) return;
     navigator.clipboard.writeText(sale.invoice_no);
@@ -294,11 +298,11 @@ export function SaleDetailDrawer({
   };
 
   const handlePrint = () => {
-    window.print();
+    setReceiptPreviewOpen(true);
   };
 
   const handleDownload = () => {
-    window.print();
+    setReceiptPreviewOpen(true);
   };
 
   const currentSale = sale || DEMO_SALE_HQ_00231;
@@ -306,8 +310,57 @@ export function SaleDetailDrawer({
   const primaryMethod =
     currentSale.payments?.[0]?.method || currentSale.payments?.[0]?.reference || "cash";
 
+  const receiptData: PosReceiptData = React.useMemo(() => {
+    const formattedDate = currentSale.sale_date
+      ? currentSale.sale_date +
+        (currentSale.created_at
+          ? " " +
+            new Date(currentSale.created_at).toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            })
+          : "")
+      : new Date().toLocaleDateString();
+
+    return {
+      invoice_no: currentSale.invoice_no,
+      date_time: formattedDate,
+      branch_name: currentSale.branch?.name || "PharmaDaily Main Branch",
+      branch_address: currentSale.branch?.address || "742 Satmasjid Road, Dhanmondi, Dhaka",
+      branch_phone: currentSale.branch?.phone || "+880 1700-000000",
+      bin_no: currentSale.branch?.bin || "002391029-0101",
+      drug_lic: currentSale.branch?.drug_lic || "DL-DHK-2024-8891",
+      cashier_name: currentSale.cashier?.name || "Karim",
+      counter: currentSale.cashier?.counter || "Counter 01",
+      customer_name: currentSale.customer?.name || "Md. Rahim",
+      customer_phone: currentSale.customer?.phone || "017XXXXXXXX",
+      items: currentSale.items.map((i) => ({
+        name: i.medicine_name,
+        generic: i.generic_name,
+        dosage_form: i.dosage_form,
+        batch_no: i.batch_no,
+        quantity: i.quantity,
+        unit_price: i.unit_price,
+        total: i.total_price,
+      })),
+      subtotal: currentSale.subtotal,
+      discount: currentSale.discount,
+      tax: currentSale.tax || 0,
+      grand_total: currentSale.total_amount,
+      amount_in_words: amountInWords(currentSale.total_amount),
+      payment_method: currentSale.payments?.[0]?.method || "Cash",
+      amount_received: currentSale.amount_received ?? currentSale.paid_amount,
+      change:
+        currentSale.change ??
+        (currentSale.amount_received
+          ? Math.max(0, currentSale.amount_received - currentSale.total_amount)
+          : 0),
+    };
+  }, [currentSale]);
+
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <>
+      <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
         showCloseButton={false}
@@ -643,5 +696,12 @@ export function SaleDetailDrawer({
         </div>
       </SheetContent>
     </Sheet>
+
+    <ReceiptPreviewDialog
+      open={receiptPreviewOpen}
+      onOpenChange={setReceiptPreviewOpen}
+      receiptData={receiptData}
+    />
+  </>
   );
 }

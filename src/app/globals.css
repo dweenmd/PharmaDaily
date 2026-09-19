@@ -220,3 +220,44 @@
 ::-webkit-scrollbar-thumb:hover {
   background: oklch(0.5 0 0 / 40%);
 }
+
+/* ---------------------------------------------------------------------------
+ * POS Machine & Invoice Print Isolation
+ * When printing, hide dashboard navigation, sidebar, and drawer overlays.
+ * --------------------------------------------------------------------------- */
+@media print {
+  /* Hide application shell navigation, sidebars, drawer overlays, and action buttons */
+  header,
+  aside,
+  nav,
+  [data-slot="sidebar"],
+  [data-slot="sidebar-wrapper"],
+  [data-sidebar],
+  [data-slot="dialog-overlay"],
+  [data-slot="sheet-overlay"],
+  .no-print,
+  .print\:hidden {
+    display: none !important;
+  }
+
+  /* Reset body colors and margins for clean printing */
+  html,
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  main,
+  [data-slot="sidebar-inset"] {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+}
+
