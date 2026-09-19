@@ -161,8 +161,11 @@ export function NotificationBell({ notifications = [] }: { notifications?: PosNo
 
         <DropdownMenuSeparator className="m-0" />
 
-        <div className="p-2">
-          <Button asChild variant="outline" size="sm" className="w-full">
+        <div className="p-2 space-y-1.5">
+          <Button asChild variant="default" size="sm" className="w-full text-xs">
+            <Link href="/notifications">Open Notification Center</Link>
+          </Button>
+          <Button asChild variant="outline" size="sm" className="w-full text-xs">
             <Link href="/stock/low">Review low stock</Link>
           </Button>
         </div>

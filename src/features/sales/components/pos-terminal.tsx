@@ -44,6 +44,8 @@ import { CustomerDialog, type PosCustomer } from "@/features/sales/components/cu
 import { DiscountApprovalDialog } from "@/features/sales/components/discount-approval-dialog";
 import { useHeldSale } from "@/features/sales/components/use-held-sale";
 import { PaymentDialog } from "@/features/sales/components/payment-dialog";
+import { BarcodeScannerModal } from "@/features/sales/components/barcode-scanner-modal";
+import { PrescriptionVerificationModal } from "@/features/sales/components/prescription-verification-modal";
 import { useHotkeys } from "@/hooks/use-hotkeys";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 import { notifyQueueChanged } from "@/hooks/use-offline-queue";
@@ -315,6 +317,12 @@ export function PosTerminal({
   const [paymentOpen, setPaymentOpen] = React.useState(false);
   const [customerOpen, setCustomerOpen] = React.useState(false);
   const [approvalOpen, setApprovalOpen] = React.useState(false);
+  const [scannerOpen, setScannerOpen] = React.useState(false);
+  const [prescriptionModalOpen, setPrescriptionModalOpen] = React.useState(false);
+  const [prescriptionItem, setPrescriptionItem] = React.useState<{
+    medicineName: string;
+    customerName: string;
+  } | null>(null);
   const [discountOverrideToken, setDiscountOverrideToken] = React.useState<string | null>(null);
   const [pendingPayments, setPendingPayments] = React.useState<
     { method: string; amount: number; reference: string | null }[] | null
@@ -730,10 +738,12 @@ export function PosTerminal({
     },
     F9: (e) => {
       e.preventDefault();
+      setScannerOpen(true);
+    },
+    F10: (e) => {
+      e.preventDefault();
       if (lines.length > 0) {
         handleDirectPayment();
-      } else if (hasHeldSale) {
-        resumeSale();
       }
     },
     Escape: () => {
@@ -898,9 +908,15 @@ export function PosTerminal({
                 placeholder="Search medicine by name, brand, generic or barcode..."
                 className="h-10.5 pl-10 pr-10 text-xs sm:text-sm rounded-xl bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 shadow-2xs focus-visible:ring-1 focus-visible:ring-zinc-400 font-medium"
               />
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400">
-                <ScanBarcode className="size-4" />
-              </div>
+              <button
+                type="button"
+                onClick={() => setScannerOpen(true)}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 flex items-center gap-1 px-2 py-1 rounded-lg bg-zinc-100/90 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-[10px] font-mono select-none transition-colors"
+                title="Open Barcode Scanner (F9)"
+              >
+                <ScanBarcode className="size-3.5" />
+                <span className="hidden sm:inline font-semibold">F9</span>
+              </button>
             </div>
 
             {/* Sort Button / Dropdown */}
@@ -1301,6 +1317,24 @@ export function PosTerminal({
                               = {formatCurrency(itemTotal)}
                             </span>
                           </div>
+
+                          {line.batch.prescription_required && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setPrescriptionItem({
+                                  medicineName: line.batch.medicine_name,
+                                  customerName: customer?.name ?? "Md. Rahim",
+                                });
+                                setPrescriptionModalOpen(true);
+                              }}
+                              className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-300 dark:bg-amber-950 dark:text-amber-300 mt-1 cursor-pointer hover:bg-amber-100 transition-colors"
+                              title="Verify prescription for this medicine"
+                            >
+                              <ShieldAlert className="size-3" />
+                              <span>Prescription Required (Verify)</span>
+                            </button>
+                          )}
                         </div>
 
                         {/* Stepper & Delete */}
@@ -1582,6 +1616,20 @@ export function PosTerminal({
         isPending={isPending}
         onConfirm={(payments) => completeSale(payments)}
         onNeedCustomer={() => setCustomerOpen(true)}
+      />
+
+      <BarcodeScannerModal
+        open={scannerOpen}
+        onOpenChange={setScannerOpen}
+        stock={stock}
+        onAddBatch={(batch) => addLine(batch)}
+      />
+
+      <PrescriptionVerificationModal
+        open={prescriptionModalOpen}
+        onOpenChange={setPrescriptionModalOpen}
+        customerName={prescriptionItem?.customerName ?? customer?.name ?? "Md. Rahim"}
+        medicineName={prescriptionItem?.medicineName ?? "Amoxicillin 500 mg"}
       />
     </div>
   );

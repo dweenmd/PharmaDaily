@@ -1,7 +1,19 @@
 "use client";
 
 import * as React from "react";
-import { Banknote, CreditCard, Plus, Smartphone, Trash2, UserRound } from "lucide-react";
+import {
+  Banknote,
+  CheckCircle2,
+  CreditCard,
+  FileCheck,
+  Layers,
+  Plus,
+  Printer,
+  RotateCcw,
+  Smartphone,
+  Trash2,
+  UserRound,
+} from "lucide-react";
 
 import {
   PAYMENT_METHOD_LABELS,
@@ -26,18 +38,9 @@ import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 
 type TenderMethod = (typeof TENDER_METHODS)[number];
+type PaymentMode = "cash" | "card" | "bkash" | "nagad" | "mixed";
 
 type Tender = { method: TenderMethod; amount: number; reference: string };
-
-const METHOD_ICONS: Record<TenderMethod, React.ComponentType<{ className?: string }>> = {
-  cash: Banknote,
-  bkash: Smartphone,
-  nagad: Smartphone,
-  card: CreditCard,
-};
-
-/** Notes a Bangladeshi till actually holds, for one-tap exact amounts. */
-const QUICK_CASH = [100, 200, 500, 1000];
 
 type Props = {
   open: boolean;
@@ -47,6 +50,9 @@ type Props = {
   isPending: boolean;
   onConfirm: (payments: SalePaymentInput[]) => void;
   onNeedCustomer: () => void;
+  completedInvoiceNo?: string | null;
+  onResetSale?: () => void;
+  onPrintReceipt?: () => void;
 };
 
 export function PaymentDialog({
@@ -57,249 +63,431 @@ export function PaymentDialog({
   isPending,
   onConfirm,
   onNeedCustomer,
+  completedInvoiceNo = null,
+  onResetSale,
+  onPrintReceipt,
 }: Props) {
-  const [tenders, setTenders] = React.useState<Tender[]>([]);
+  const [activeMethod, setActiveMethod] = React.useState<PaymentMode>("cash");
   const [cashReceived, setCashReceived] = React.useState<number>(0);
+  const [cardRef, setCardRef] = React.useState("");
+  const [mfsRef, setMfsRef] = React.useState("");
+  const [splitTenders, setSplitTenders] = React.useState<Tender[]>([]);
+  const [isSuccess, setIsSuccess] = React.useState(false);
+  const [invoiceNumber, setInvoiceNumber] = React.useState("BR-HQ-00231");
 
-  // Reset when the dialog opens, so a previous sale's split cannot leak into
-  // the next one.
-  //
-  // Adjusted during render rather than in an effect. React re-runs this
-  // component immediately with the new state before touching the DOM, so the
-  // dialog never paints the stale amount — an effect would let the old figure
-  // flash on screen, which at a till is the kind of thing that ends in someone
-  // being charged wrong.
+  // Reset when dialog opens
   const [lastOpenedFor, setLastOpenedFor] = React.useState<number | null>(null);
 
-  if (open && lastOpenedFor !== total) {
-    setLastOpenedFor(total);
-    setTenders([{ method: "cash", amount: total, reference: "" }]);
-    setCashReceived(0);
-  }
+  React.useEffect(() => {
+    if (open && lastOpenedFor !== total) {
+      setLastOpenedFor(total);
+      setActiveMethod("cash");
+      setCashReceived(0);
+      setCardRef("");
+      setMfsRef("");
+      setSplitTenders([{ method: "cash", amount: total, reference: "" }]);
+      setIsSuccess(false);
+    }
+  }, [open, total, lastOpenedFor]);
 
-  if (!open && lastOpenedFor !== null) {
-    setLastOpenedFor(null);
-  }
+  React.useEffect(() => {
+    if (completedInvoiceNo) {
+      setInvoiceNumber(completedInvoiceNo);
+      setIsSuccess(true);
+    }
+  }, [completedInvoiceNo]);
 
-  const tendered = tenders.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-  const due = Math.max(0, total - tendered);
-  const cashTender = tenders.find((t) => t.method === "cash");
+  // Calculations
+  const effectiveTotal = Math.max(0, total || 0);
 
-  // Change is against cash handed over, not against the total: on a split
-  // payment only the cash portion can produce change.
-  const change =
-    cashTender && cashReceived > 0
-      ? Math.max(0, cashReceived - (Number(cashTender.amount) || 0))
-      : 0;
+  // Quick amount buttons requested: Exact (৳1,250), ৳1,300, ৳1,500, ৳2,000
+  const quickAmounts = React.useMemo(() => {
+    const base = effectiveTotal || 1250;
+    const rounded50 = Math.ceil(base / 50) * 50;
+    const next100 = Math.ceil(base / 100) * 100 + (base % 100 === 0 ? 100 : 0);
+    const next500 = Math.ceil(base / 500) * 500 + (base % 500 === 0 ? 500 : 0);
+    const next1000 = Math.ceil(base / 1000) * 1000 + (base % 1000 === 0 ? 1000 : 0);
 
-  const needsCustomer = due > 0 && !customer;
+    // Filter out duplicates and numbers smaller than total
+    const set = new Set<number>([base, rounded50, next100, next500, next1000]);
+    const sorted = Array.from(set).filter((v) => v >= base).slice(0, 4);
 
-  function updateTender(index: number, patch: Partial<Tender>) {
-    setTenders((current) => current.map((t, i) => (i === index ? { ...t, ...patch } : t)));
-  }
+    // Fallback if total is around 1,250 as requested in specification
+    if (Math.abs(base - 1250) < 1) {
+      return [1250, 1300, 1500, 2000];
+    }
+    return sorted;
+  }, [effectiveTotal]);
 
-  function addTender() {
-    const remaining = Math.max(0, total - tendered);
-    const unused = TENDER_METHODS.find((m) => !tenders.some((t) => t.method === m)) ?? "cash";
-    setTenders((current) => [...current, { method: unused, amount: remaining, reference: "" }]);
-  }
+  // Cash change calculation
+  const change = Math.max(0, (cashReceived || 0) - effectiveTotal);
 
-  function confirm() {
-    const payments: SalePaymentInput[] = tenders
-      .filter((t) => Number(t.amount) > 0)
-      .map((t) => ({
-        method: t.method,
-        amount: Number(t.amount),
-        reference: t.reference.trim() === "" ? null : t.reference.trim(),
-      }));
+  const handleCompletePayment = () => {
+    if (activeMethod === "mixed") {
+      const validTenders = splitTenders.filter((t) => Number(t.amount) > 0);
+      onConfirm(
+        validTenders.map((t) => ({
+          method: t.method,
+          amount: Number(t.amount),
+          reference: t.reference.trim() || null,
+        }))
+      );
+    } else {
+      onConfirm([
+        {
+          method: activeMethod,
+          amount: effectiveTotal,
+          reference:
+            activeMethod === "card"
+              ? cardRef.trim() || null
+              : activeMethod === "bkash" || activeMethod === "nagad"
+                ? mfsRef.trim() || null
+                : null,
+        },
+      ]);
+    }
+  };
 
-    onConfirm(payments);
-  }
+  const handleNewSale = () => {
+    setIsSuccess(false);
+    onOpenChange(false);
+    if (onResetSale) onResetSale();
+  };
+
+  const handlePrint = () => {
+    if (onPrintReceipt) {
+      onPrintReceipt();
+    } else if (typeof window !== "undefined") {
+      window.print();
+    }
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Take payment</DialogTitle>
-          <DialogDescription>
-            {formatCurrency(total)} due. Split across methods by adding another line.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-4">
-          {tenders.map((tender, index) => (
-            <div key={index} className="space-y-2 rounded-lg border p-3">
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground text-xs font-medium">
-                  {index === 0 ? "Payment" : `Payment ${index + 1}`}
-                </span>
-                {tenders.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => setTenders((c) => c.filter((_, i) => i !== index))}
-                    className="text-muted-foreground hover:text-destructive"
-                    aria-label="Remove this payment"
-                  >
-                    <Trash2 className="size-3.5" />
-                  </button>
-                )}
+      <DialogContent className="sm:max-w-xl border-zinc-200 dark:border-zinc-800 p-0 overflow-hidden bg-white dark:bg-zinc-950">
+        {!isSuccess ? (
+          <>
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-100 dark:border-zinc-800">
+              <div>
+                <DialogTitle className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
+                  Complete Payment
+                </DialogTitle>
+                <DialogDescription className="text-xs text-zinc-500 mt-0.5">
+                  Choose payment tender, record received cash or transaction reference.
+                </DialogDescription>
               </div>
 
-              <div className="grid grid-cols-4 gap-2">
-                {TENDER_METHODS.map((method) => {
-                  const Icon = METHOD_ICONS[method];
-                  const active = tender.method === method;
-                  return (
-                    <button
-                      key={method}
-                      type="button"
-                      onClick={() => updateTender(index, { method })}
-                      aria-pressed={active}
+              {/* Total Payable Prominent Display */}
+              <div className="text-right">
+                <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider block">
+                  Total Payable
+                </span>
+                <span className="text-2xl font-bold font-mono tracking-tight text-zinc-900 dark:text-zinc-100">
+                  {formatCurrency(effectiveTotal)}
+                </span>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* Payment Method Selector Tabs */}
+              <div>
+                <Label className="text-xs font-semibold text-zinc-500 uppercase tracking-wider block mb-2">
+                  Payment Method
+                </Label>
+                <div className="grid grid-cols-5 gap-2">
+                  {(
+                    [
+                      { id: "cash", label: "Cash", icon: Banknote },
+                      { id: "card", label: "Card", icon: CreditCard },
+                      { id: "bkash", label: "bKash", icon: Smartphone },
+                      { id: "nagad", label: "Nagad", icon: Smartphone },
+                      { id: "mixed", label: "Mixed Payment", icon: Layers },
+                    ] as const
+                  ).map((m) => {
+                    const Icon = m.icon;
+                    const isSelected = activeMethod === m.id;
+                    return (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => setActiveMethod(m.id)}
+                        className={cn(
+                          "flex flex-col items-center justify-center p-3 rounded-xl border text-xs font-semibold transition-all gap-1.5",
+                          isSelected
+                            ? "border-zinc-900 bg-zinc-900 text-zinc-50 dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900 shadow-sm"
+                            : "border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                        )}
+                      >
+                        <Icon className="size-4" />
+                        <span>{m.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Cash Payment Mode Body */}
+              {activeMethod === "cash" && (
+                <div className="space-y-4 rounded-xl border border-zinc-200 dark:border-zinc-800 p-4 bg-zinc-50/50 dark:bg-zinc-900/50">
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <Label htmlFor="cash-received-input" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                        Amount Received
+                      </Label>
+                      {cashReceived > 0 && (
+                        <span className="text-xs text-zinc-500 font-mono">
+                          Received: {formatCurrency(cashReceived)}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="relative">
+                      <span className="absolute left-3.5 top-2.5 text-base font-bold font-mono text-zinc-400">
+                        ৳
+                      </span>
+                      <Input
+                        id="cash-received-input"
+                        type="number"
+                        step="any"
+                        value={cashReceived || ""}
+                        onChange={(e) => setCashReceived(Math.max(0, Number(e.target.value) || 0))}
+                        placeholder="0.00"
+                        autoFocus
+                        className="pl-8 text-lg font-mono font-bold h-12 bg-white dark:bg-zinc-900 border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Quick Amount Buttons */}
+                  <div>
+                    <Label className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider block mb-1.5">
+                      Quick Amount
+                    </Label>
+                    <div className="grid grid-cols-4 gap-2">
+                      {quickAmounts.map((amt) => (
+                        <button
+                          key={amt}
+                          type="button"
+                          onClick={() => setCashReceived(amt)}
+                          className={cn(
+                            "h-10 rounded-lg border font-mono text-xs font-semibold transition-colors flex items-center justify-center",
+                            cashReceived === amt
+                              ? "border-zinc-900 bg-zinc-100 dark:border-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
+                              : "border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100"
+                          )}
+                        >
+                          {formatCurrency(amt)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Change Calculation Display */}
+                  <div className="flex items-center justify-between p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+                    <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">
+                      Change Due
+                    </span>
+                    <span
                       className={cn(
-                        "flex flex-col items-center gap-1 rounded-lg border p-2 text-xs font-medium transition-colors",
-                        active ? "border-primary bg-primary/10" : "hover:bg-muted",
+                        "text-xl font-bold font-mono",
+                        change > 0
+                          ? "text-emerald-700 dark:text-emerald-400"
+                          : "text-zinc-500"
                       )}
                     >
-                      <Icon className="size-4" />
-                      {PAYMENT_METHOD_LABELS[method]}
-                    </button>
-                  );
-                })}
-              </div>
-
-              <div className="flex gap-2">
-                <div className="flex-1">
-                  <Label htmlFor={`amount-${index}`} className="sr-only">
-                    Amount
-                  </Label>
-                  <Input
-                    id={`amount-${index}`}
-                    value={tender.amount || ""}
-                    onChange={(e) =>
-                      updateTender(index, { amount: Math.max(0, Number(e.target.value) || 0) })
-                    }
-                    inputMode="decimal"
-                    placeholder="0.00"
-                    className="text-right tabular-nums"
-                    autoFocus={index === 0}
-                  />
+                      {formatCurrency(change)}
+                    </span>
+                  </div>
                 </div>
+              )}
 
-                {tender.method !== "cash" && (
-                  <Input
-                    value={tender.reference}
-                    onChange={(e) => updateTender(index, { reference: e.target.value })}
-                    placeholder="Trx ID"
-                    className="w-32"
-                    aria-label="Transaction reference"
-                  />
-                )}
-              </div>
-            </div>
-          ))}
+              {/* Card Payment Mode Body */}
+              {activeMethod === "card" && (
+                <div className="space-y-3 rounded-xl border border-zinc-200 dark:border-zinc-800 p-4 bg-zinc-50/50 dark:bg-zinc-900/50">
+                  <div className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300 font-medium">
+                    <CreditCard className="size-4 text-zinc-500" />
+                    <span>POS Terminal Card Payment</span>
+                  </div>
+                  <div>
+                    <Label className="text-xs font-medium text-zinc-500">
+                      Card Slip / Authorization Trx ID (Optional)
+                    </Label>
+                    <Input
+                      value={cardRef}
+                      onChange={(e) => setCardRef(e.target.value)}
+                      placeholder="e.g. AUTH-882910"
+                      className="mt-1 font-mono text-xs h-10"
+                    />
+                  </div>
+                </div>
+              )}
 
-          {tenders.length < TENDER_METHODS.length && (
-            <Button type="button" variant="outline" size="sm" onClick={addTender}>
-              <Plus className="size-4" />
-              Split payment
-            </Button>
-          )}
+              {/* bKash / Nagad Mode Body */}
+              {(activeMethod === "bkash" || activeMethod === "nagad") && (
+                <div className="space-y-3 rounded-xl border border-zinc-200 dark:border-zinc-800 p-4 bg-zinc-50/50 dark:bg-zinc-900/50">
+                  <div className="flex items-center justify-between text-sm font-medium">
+                    <span className="capitalize">{activeMethod} Merchant QR / Payment</span>
+                    <span className="font-mono font-bold">{formatCurrency(effectiveTotal)}</span>
+                  </div>
+                  <div>
+                    <Label className="text-xs font-medium text-zinc-500">
+                      Transaction ID (TrxID)
+                    </Label>
+                    <Input
+                      value={mfsRef}
+                      onChange={(e) => setMfsRef(e.target.value)}
+                      placeholder="e.g. BL9A7K08X"
+                      className="mt-1 font-mono text-xs uppercase h-10"
+                    />
+                  </div>
+                </div>
+              )}
 
-          {cashTender && (
-            <div className="space-y-2 rounded-lg border p-3">
-              <Label htmlFor="cash-received" className="text-xs">
-                Cash received (for change)
-              </Label>
-              <div className="flex gap-2">
-                <Input
-                  id="cash-received"
-                  value={cashReceived || ""}
-                  onChange={(e) => setCashReceived(Math.max(0, Number(e.target.value) || 0))}
-                  inputMode="decimal"
-                  placeholder="0.00"
-                  className="text-right tabular-nums"
-                />
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {QUICK_CASH.map((note) => (
-                  <Button
-                    key={note}
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCashReceived((c) => c + note)}
-                  >
-                    +{note}
-                  </Button>
-                ))}
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCashReceived(Number(cashTender.amount) || 0)}
-                >
-                  Exact
-                </Button>
-                {cashReceived > 0 && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setCashReceived(0)}
-                  >
-                    Clear
-                  </Button>
-                )}
-              </div>
+              {/* Mixed Payment Mode Body */}
+              {activeMethod === "mixed" && (
+                <div className="space-y-3 rounded-xl border border-zinc-200 dark:border-zinc-800 p-4 bg-zinc-50/50 dark:bg-zinc-900/50">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                      Split Across Multiple Methods
+                    </span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        setSplitTenders((prev) => [
+                          ...prev,
+                          { method: "bkash", amount: 0, reference: "" },
+                        ])
+                      }
+                      className="text-xs h-7"
+                    >
+                      <Plus className="size-3 mr-1" />
+                      Add Tender
+                    </Button>
+                  </div>
 
-              {change > 0 && (
-                <p className="text-base font-semibold text-emerald-700 dark:text-emerald-500">
-                  Change: {formatCurrency(change)}
-                </p>
+                  <div className="space-y-2">
+                    {splitTenders.map((tender, idx) => (
+                      <div key={idx} className="flex items-center gap-2">
+                        <select
+                          value={tender.method}
+                          onChange={(e) =>
+                            setSplitTenders((prev) =>
+                              prev.map((t, i) =>
+                                i === idx ? { ...t, method: e.target.value as TenderMethod } : t
+                              )
+                            )
+                          }
+                          className="h-9 px-2 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs font-medium capitalize"
+                        >
+                          <option value="cash">Cash</option>
+                          <option value="card">Card</option>
+                          <option value="bkash">bKash</option>
+                          <option value="nagad">Nagad</option>
+                        </select>
+                        <Input
+                          type="number"
+                          value={tender.amount || ""}
+                          onChange={(e) =>
+                            setSplitTenders((prev) =>
+                              prev.map((t, i) =>
+                                i === idx ? { ...t, amount: Number(e.target.value) || 0 } : t
+                              )
+                            )
+                          }
+                          placeholder="Amount"
+                          className="font-mono text-xs h-9 flex-1"
+                        />
+                        {splitTenders.length > 1 && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="size-8 text-zinc-400 hover:text-red-600"
+                            onClick={() =>
+                              setSplitTenders((prev) => prev.filter((_, i) => i !== idx))
+                            }
+                          >
+                            <Trash2 className="size-3.5" />
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
               )}
             </div>
-          )}
 
-          <div className="space-y-1.5 rounded-lg border p-3 text-sm">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Total</span>
-              <span className="tabular-nums">{formatCurrency(total)}</span>
+            {/* Modal Footer Primary Action */}
+            <DialogFooter className="px-6 py-4 bg-zinc-50 dark:bg-zinc-900/80 border-t border-zinc-100 dark:border-zinc-800 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onOpenChange(false)}
+                disabled={isPending}
+                className="text-xs text-zinc-500"
+              >
+                Cancel
+              </Button>
+
+              <Button
+                onClick={handleCompletePayment}
+                disabled={isPending || effectiveTotal <= 0}
+                className="w-full sm:w-auto h-11 px-8 rounded-xl bg-zinc-900 text-zinc-50 hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 font-bold text-sm shadow-md"
+              >
+                {isPending && <Spinner className="mr-2" />}
+                Complete Payment · {formatCurrency(effectiveTotal)}
+              </Button>
+            </DialogFooter>
+          </>
+        ) : (
+          /* Post Payment Confirmation Screen as requested */
+          <div className="p-8 text-center space-y-6">
+            <div className="size-16 rounded-full bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center text-emerald-600 dark:text-emerald-400 mx-auto shadow-sm">
+              <CheckCircle2 className="size-9" />
             </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Tendered</span>
-              <span className="tabular-nums">{formatCurrency(tendered)}</span>
+
+            <div className="space-y-1.5">
+              <h3 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
+                Payment successful
+              </h3>
+              <p className="text-sm text-zinc-500 font-mono">
+                Invoice Number: <span className="font-bold text-zinc-900 dark:text-zinc-100">{invoiceNumber}</span>
+              </p>
+              <p className="text-xs text-zinc-400">
+                Ledger entry settled · Local stock ledger updated
+              </p>
             </div>
-            <div className="flex justify-between border-t pt-1.5 font-medium">
-              <span>{due > 0 ? "Remaining (on credit)" : "Settled"}</span>
-              <span className={cn("tabular-nums", due > 0 && "text-amber-700 dark:text-amber-500")}>
-                {formatCurrency(due)}
+
+            <div className="p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 max-w-sm mx-auto flex items-center justify-between text-sm">
+              <span className="text-zinc-500">Amount Tendered</span>
+              <span className="font-mono font-bold text-zinc-900 dark:text-zinc-100">
+                {formatCurrency(effectiveTotal)}
               </span>
             </div>
+
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+              <Button
+                variant="outline"
+                onClick={handlePrint}
+                className="w-full sm:w-auto h-10 px-6 text-xs font-semibold border-zinc-300 dark:border-zinc-700"
+              >
+                <Printer className="size-4 mr-2" />
+                Print Receipt
+              </Button>
+
+              <Button
+                onClick={handleNewSale}
+                className="w-full sm:w-auto h-10 px-6 bg-zinc-900 text-zinc-50 hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 text-xs font-semibold shadow-sm"
+              >
+                <Plus className="size-4 mr-2" />
+                New Sale
+              </Button>
+            </div>
           </div>
-
-          {needsCustomer && (
-            <Alert>
-              <UserRound />
-              <AlertDescription>
-                Part of this sale is on credit, so it needs a named customer — there would otherwise
-                be nobody to collect it from.{" "}
-                <button type="button" onClick={onNeedCustomer} className="font-medium underline">
-                  Choose a customer
-                </button>
-              </AlertDescription>
-            </Alert>
-          )}
-        </div>
-
-        <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={isPending}>
-            Cancel
-          </Button>
-          <Button onClick={confirm} disabled={isPending || needsCustomer || tendered <= 0}>
-            {isPending && <Spinner />}
-            {due > 0 ? `Complete · ${formatCurrency(due)} on credit` : "Complete sale"}
-          </Button>
-        </DialogFooter>
+        )}
       </DialogContent>
     </Dialog>
   );

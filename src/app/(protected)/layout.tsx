@@ -6,6 +6,7 @@ import { getCurrentProfile } from "@/lib/auth/get-current-profile";
 import { canSwitchBranch } from "@/lib/auth/roles";
 import { AppHeader } from "@/components/shared/app-header";
 import { AppSidebar } from "@/components/shared/app-sidebar";
+import { GlobalSearchCommand } from "@/components/shared/global-search-command";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 
 /**
@@ -63,6 +64,8 @@ export default async function ProtectedLayout({ children }: LayoutProps<"/">) {
             created_at: n.created_at,
           }))}
         />
+
+        <GlobalSearchCommand />
 
         <main id="main-content" className="flex-1 p-4 sm:p-6">
           {children}

@@ -41,16 +41,20 @@ export function AppHeader({
       <Separator orientation="vertical" className="mr-1 h-5" />
 
       {/* Global Medicine Search Bar from Design */}
-      <div className="hidden md:flex flex-1 max-w-xl items-center relative mx-2">
-        <Search className="size-4 text-zinc-400 absolute left-3 pointer-events-none" />
-        <input
-          type="text"
-          placeholder="Search medicine by name, brand, generic or barcode..."
-          className="w-full h-9 pl-9 pr-24 text-xs rounded-xl bg-zinc-100/80 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 focus:outline-none focus:border-zinc-400 focus:bg-background transition-all placeholder:text-zinc-400 text-foreground font-medium"
-        />
-        <div className="absolute right-2 flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-zinc-200/70 dark:bg-zinc-800 text-[10px] text-zinc-600 dark:text-zinc-300 font-mono select-none pointer-events-none border border-zinc-300/40 dark:border-zinc-700/60">
-          <ScanBarcode className="size-3" />
-          <span>F9 Scanner</span>
+      <div 
+        onClick={() => {
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("open-global-search"));
+          }
+        }}
+        className="hidden md:flex flex-1 max-w-xl items-center relative mx-2 cursor-pointer group"
+      >
+        <Search className="size-4 text-zinc-400 group-hover:text-zinc-600 dark:group-hover:text-zinc-300 absolute left-3 pointer-events-none transition-colors" />
+        <div className="w-full h-9 pl-9 pr-24 text-xs rounded-xl bg-zinc-100/80 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 group-hover:border-zinc-300 dark:group-hover:border-zinc-700 transition-all text-zinc-400 flex items-center font-medium select-none">
+          Search medicines, customers, invoices, suppliers...
+        </div>
+        <div className="absolute right-2 flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-zinc-200/70 dark:bg-zinc-800 text-[10px] text-zinc-600 dark:text-zinc-300 font-mono select-none border border-zinc-300/40 dark:border-zinc-700/60">
+          <span className="font-sans text-[11px] font-semibold">⌘K</span>
         </div>
       </div>
 
