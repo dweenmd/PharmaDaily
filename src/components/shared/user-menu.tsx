@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { signOutAction } from "@/features/auth/actions";
 import { ChangePasswordDialog } from "@/features/staff/components/change-password-dialog";
 import { ROLE_LABELS } from "@/lib/auth/roles";
+import { createClient as createBrowserClient } from "@/lib/supabase/client";
 import { type UserRole } from "@/types";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -42,13 +43,47 @@ export function UserMenu({ name, role, branchName }: Props) {
   function handleSignOut() {
     startTransition(async () => {
       try {
+        // 1. Clean local Supabase client session if available
+        try {
+          const clientSupabase = createBrowserClient();
+          await clientSupabase.auth.signOut({ scope: "local" });
+        } catch {
+          // Non-blocking local cleanup
+        }
+
+        // 2. Call server action to invalidate session & wipe cookies
         await signOutAction();
+
+        // 3. Clear any client cookies as immediate defense-in-depth
+        try {
+          if (typeof document !== "undefined") {
+            document.cookie.split(";").forEach((c) => {
+              const eqPos = c.indexOf("=");
+              const cookieName = eqPos > -1 ? c.substring(0, eqPos).trim() : c.trim();
+              if (cookieName.startsWith("sb-") || cookieName.includes("auth-token")) {
+                document.cookie = `${cookieName}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
+              }
+            });
+          }
+        } catch {}
+
+        // 4. Clean hard navigation to /login to flush in-memory state and caches
+        window.location.href = "/login";
       } catch (error) {
-        // redirect() inside a server action throws a control-flow signal that
-        // must not be swallowed, or the user stays on a page they are no
-        // longer authorised for.
-        if (error instanceof Error && error.message.includes("NEXT_REDIRECT")) throw error;
-        toast.error("Could not sign out", { description: "Check your connection and try again." });
+        console.error("Sign out error, executing fallback redirect:", error);
+        // Fallback: even on error, clear client cookies and force navigation
+        try {
+          if (typeof document !== "undefined") {
+            document.cookie.split(";").forEach((c) => {
+              const eqPos = c.indexOf("=");
+              const cookieName = eqPos > -1 ? c.substring(0, eqPos).trim() : c.trim();
+              if (cookieName.startsWith("sb-") || cookieName.includes("auth-token")) {
+                document.cookie = `${cookieName}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
+              }
+            });
+          }
+        } catch {}
+        window.location.href = "/login";
       }
     });
   }

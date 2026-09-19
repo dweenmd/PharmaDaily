@@ -1,5 +1,6 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
@@ -72,8 +73,40 @@ export async function signInAction(formData: FormData): Promise<LoginResult> {
   return { ok: true, redirectTo };
 }
 
-export async function signOutAction() {
-  const supabase = await createClient();
-  await supabase.auth.signOut();
-  redirect("/login");
+export async function signOutAction(): Promise<{ ok: boolean }> {
+  try {
+    const supabase = await createClient();
+    // Attempt Supabase server sign-out with a 2.5s timeout.
+    // If network fails, drops, or Supabase is slow, catch and proceed with local cleanup.
+    await Promise.race([
+      supabase.auth.signOut(),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Supabase signOut timeout")), 2500),
+      ),
+    ]).catch((err) => {
+      console.warn("Supabase auth.signOut warning (proceeding with local cleanup):", err);
+    });
+  } catch (err) {
+    console.warn("createClient error during signOut:", err);
+  }
+
+  // Explicitly wipe all Supabase session cookies from the cookieStore
+  try {
+    const cookieStore = await cookies();
+    const allCookies = cookieStore.getAll();
+    for (const c of allCookies) {
+      if (c.name.startsWith("sb-") || c.name.includes("auth-token")) {
+        cookieStore.delete(c.name);
+        cookieStore.set(c.name, "", {
+          path: "/",
+          expires: new Date(0),
+          maxAge: 0,
+        });
+      }
+    }
+  } catch (err) {
+    console.warn("Cookie clearing error during signOut:", err);
+  }
+
+  return { ok: true };
 }
