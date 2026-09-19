@@ -13,6 +13,7 @@ export type MedicineFilters = {
   search?: string;
   categoryId?: string;
   status?: "active" | "inactive" | "all";
+  limit?: number;
 };
 
 /**
@@ -38,7 +39,8 @@ export const getMedicines = cache(
         `,
       )
       .is("deleted_at", null)
-      .order("name");
+      .order("brand_name", { ascending: true, nullsFirst: false })
+      .order("name", { ascending: true });
 
     if (filters.categoryId) {
       query = query.eq("category_id", filters.categoryId);
@@ -65,7 +67,8 @@ export const getMedicines = cache(
       }
     }
 
-    const { data, error } = await query.limit(500);
+    const limit = filters.limit ?? 1500;
+    const { data, error } = await query.limit(limit);
     if (error) return [];
 
     return (data ?? []).map((row) => ({

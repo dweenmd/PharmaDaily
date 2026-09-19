@@ -142,6 +142,7 @@ next-env.d.ts
 tmp/
 temp/
 scratch/
+scripts/data/
 *.local
 *.bak
 *.orig
