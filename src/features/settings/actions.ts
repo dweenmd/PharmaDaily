@@ -85,6 +85,86 @@ export const EDITABLE_SETTINGS = {
     label: "DGDA License Number",
     description: "Official drug administration retail pharmacy license identifier.",
   },
+  receipt_header_name: {
+    type: "text",
+    label: "Receipt Header Name",
+    description: "Brand name printed at the top of POS slips.",
+  },
+  receipt_header_tagline: {
+    type: "text",
+    label: "Receipt Tagline / Subtitle",
+    description: "Subtitle printed under the pharmacy name (e.g. Model Pharmacy).",
+  },
+  receipt_header_address: {
+    type: "text",
+    label: "Receipt Address",
+    description: "Physical branch address printed on POS receipts.",
+  },
+  receipt_header_phone: {
+    type: "text",
+    label: "Receipt Hotline / Phone",
+    description: "Contact phone numbers printed on POS slips.",
+  },
+  receipt_header_drug_lic: {
+    type: "text",
+    label: "Receipt Drug License No",
+    description: "DGDA retail pharmacy drug license number on receipts.",
+  },
+  receipt_header_bin: {
+    type: "text",
+    label: "Receipt VAT / BIN Number",
+    description: "Business Identification Number for NBR VAT compliance.",
+  },
+  receipt_header_email: {
+    type: "text",
+    label: "Receipt Email / Website",
+    description: "Store email or web domain printed on receipts.",
+  },
+  receipt_footer_thank_you: {
+    type: "text",
+    label: "Receipt Thank You Message",
+    description: "Prominent greeting message above receipt policy.",
+  },
+  receipt_footer_return_policy: {
+    type: "text",
+    label: "Receipt Return & Exchange Policy",
+    description: "Multi-line return policy printed at the base of the receipt.",
+  },
+  receipt_footer_helpline: {
+    type: "text",
+    label: "Receipt Helpline / Feedback",
+    description: "Complaints and feedback phone number printed on the receipt.",
+  },
+  receipt_footer_tagline: {
+    type: "text",
+    label: "Receipt Footer Tagline",
+    description: "System footer or copyright attribution note.",
+  },
+  receipt_show_barcode: {
+    type: "text",
+    label: "Show Barcode on Receipt",
+    description: "Toggle invoice barcode printing for laser gun scanners.",
+  },
+  receipt_show_batch_expiry: {
+    type: "text",
+    label: "Show Batch & Expiry",
+    description: "Toggle medicine batch and expiration dates on receipt items.",
+  },
+  receipt_show_customer_info: {
+    type: "text",
+    label: "Show Customer Info",
+    description: "Toggle customer name and phone on receipt header.",
+  },
+  receipt_show_cashier_info: {
+    type: "text",
+    label: "Show Cashier Info",
+    description: "Toggle cashier name and counter number on receipt.",
+  },
+  receipt_show_amount_in_words: {
+    type: "text",
+    label: "Show Amount in Words",
+    description: "Toggle spelling out total payable amount in words.",
+  },
 } as const;
 
 export type SettingKey = keyof typeof EDITABLE_SETTINGS;

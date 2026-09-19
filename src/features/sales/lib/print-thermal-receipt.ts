@@ -4,7 +4,7 @@ import { formatCurrency } from "@/lib/format";
 /**
  * Isolated thermal POS receipt printing utility.
  * Creates an isolated hidden iframe and prints ONLY the thermal receipt slip.
- * Eliminates background website DOM, sidebars, modals, and screen distortion.
+ * Respects customized headers, footers, store licensing, and display toggles.
  */
 export function printThermalReceipt(receipt: PosReceiptData, paperWidth: "80mm" | "58mm" = "80mm") {
   if (typeof window === "undefined") return;
@@ -13,13 +13,25 @@ export function printThermalReceipt(receipt: PosReceiptData, paperWidth: "80mm" 
   const widthCss = is58mm ? "58mm" : "80mm";
   const fontSizeCss = is58mm ? "10px" : "12px";
 
+  const showBarcode = receipt.show_barcode !== false;
+  const showBatchExpiry = receipt.show_batch_expiry !== false;
+  const showCustomerInfo = receipt.show_customer_info !== false && Boolean(receipt.customer_name);
+  const showCashierInfo = receipt.show_cashier_info !== false && Boolean(receipt.cashier_name);
+  const showAmountInWords = receipt.show_amount_in_words !== false && Boolean(receipt.amount_in_words);
+
+  const thankYouText = receipt.footer_thank_you || "*** THANK YOU · GET WELL SOON ***";
+  const returnPolicyText =
+    receipt.footer_return_policy ||
+    "Returns accepted within 7 days with original receipt. Cold-chain items & cut strips are non-returnable.";
+  const taglineText = receipt.footer_tagline || "PharmaDaily Cloud POS";
+
   const itemsHtml = receipt.items
     .map(
       (item) => `
       <div style="margin-bottom: 5px; font-size: ${fontSizeCss};">
         <div style="font-weight: bold; text-transform: uppercase;">${escapeHtml(item.name)}</div>
         ${
-          item.batch_no || item.expiry_date
+          showBatchExpiry && (item.batch_no || item.expiry_date)
             ? `<div style="font-size: 9px; color: #555;">${
                 item.batch_no ? `Batch: ${escapeHtml(item.batch_no)} ` : ""
               }${item.expiry_date ? `| Exp: ${escapeHtml(item.expiry_date)}` : ""}</div>`
@@ -86,11 +98,13 @@ export function printThermalReceipt(receipt: PosReceiptData, paperWidth: "80mm" 
           <div style="font-size: 15px; font-weight: bold; text-transform: uppercase;">
             ${escapeHtml(receipt.branch_name || "PharmaDaily Pharmacy")}
           </div>
+          ${receipt.branch_tagline ? `<div style="font-size: 10px; font-style: italic; color: #444;">${escapeHtml(receipt.branch_tagline)}</div>` : ""}
           ${receipt.branch_address ? `<div style="font-size: 10px;">${escapeHtml(receipt.branch_address)}</div>` : ""}
           <div style="font-size: 10px;">
             ${receipt.branch_phone ? `Tel: ${escapeHtml(receipt.branch_phone)} ` : ""}
             ${receipt.bin_no ? `| BIN: ${escapeHtml(receipt.bin_no)}` : ""}
           </div>
+          ${receipt.branch_email ? `<div style="font-size: 9px; color: #555;">${escapeHtml(receipt.branch_email)}</div>` : ""}
           ${receipt.drug_lic ? `<div style="font-size: 10px; font-weight: bold;">Drug Lic: ${escapeHtml(receipt.drug_lic)}</div>` : ""}
         </div>
 
@@ -104,12 +118,12 @@ export function printThermalReceipt(receipt: PosReceiptData, paperWidth: "80mm" 
           </div>
           <div class="row" style="color: #444;">
             <span>DATE: ${escapeHtml(receipt.date_time)}</span>
-            ${receipt.cashier_name ? `<span>BY: ${escapeHtml(receipt.cashier_name)}</span>` : ""}
+            ${showCashierInfo ? `<span>BY: ${escapeHtml(receipt.cashier_name || "")}</span>` : ""}
           </div>
           ${
-            receipt.customer_name
+            showCustomerInfo
               ? `<div class="row" style="margin-top: 2px;">
-                  <span>CUST: ${escapeHtml(receipt.customer_name)}</span>
+                  <span>CUST: ${escapeHtml(receipt.customer_name || "")}</span>
                   ${receipt.customer_phone ? `<span>${escapeHtml(receipt.customer_phone)}</span>` : ""}
                 </div>`
               : ""
@@ -120,7 +134,7 @@ export function printThermalReceipt(receipt: PosReceiptData, paperWidth: "80mm" 
 
         <!-- Column Headers -->
         <div class="row font-bold" style="font-size: 10px; border-bottom: 1px solid #000; padding-bottom: 3px; margin-bottom: 4px;">
-          <span style="flex: 2;">ITEM / BATCH</span>
+          <span style="flex: 2;">${showBatchExpiry ? "ITEM / BATCH" : "ITEM NAME"}</span>
           <span style="flex: 1; text-align: center;">QTY</span>
           <span style="flex: 1; text-align: right;">PRICE</span>
           <span style="flex: 1; text-align: right;">TOTAL</span>
@@ -154,7 +168,7 @@ export function printThermalReceipt(receipt: PosReceiptData, paperWidth: "80mm" 
             <span>${formatCurrency(receipt.grand_total)}</span>
           </div>
           ${
-            receipt.amount_in_words
+            showAmountInWords && receipt.amount_in_words
               ? `<div class="text-center" style="font-size: 9px; font-style: italic; color: #555;">(${escapeHtml(receipt.amount_in_words)})</div>`
               : ""
           }
@@ -182,18 +196,22 @@ export function printThermalReceipt(receipt: PosReceiptData, paperWidth: "80mm" 
         </div>
 
         <!-- Barcode -->
-        <div class="text-center" style="margin-top: 6px;">
-          <div class="barcode">*${escapeHtml(receipt.invoice_no)}*</div>
-          <div style="font-size: 8px; color: #666;">Scan barcode to verify sale or return</div>
-        </div>
+        ${
+          showBarcode
+            ? `<div class="text-center" style="margin-top: 6px;">
+                <div class="barcode">*${escapeHtml(receipt.invoice_no)}*</div>
+                <div style="font-size: 8px; color: #666;">Scan barcode to verify sale or return</div>
+              </div>`
+            : ""
+        }
 
         <!-- Footer Policy -->
         <div class="border-dashed"></div>
         <div class="text-center" style="font-size: 9px; color: #444; line-height: 1.3;">
-          <div class="font-bold" style="color: #000;">*** THANK YOU · GET WELL SOON ***</div>
-          <div>Returns accepted within 7 days with receipt.</div>
-          <div>Cold-chain items & cut strips are non-returnable.</div>
-          <div style="font-size: 8px; color: #888; margin-top: 4px;">PharmaDaily Cloud POS</div>
+          <div class="font-bold" style="color: #000;">${escapeHtml(thankYouText)}</div>
+          ${returnPolicyText ? `<div>${escapeHtml(returnPolicyText)}</div>` : ""}
+          ${receipt.footer_helpline ? `<div style="color: #222; font-weight: bold; margin-top: 2px;">Helpline: ${escapeHtml(receipt.footer_helpline)}</div>` : ""}
+          <div style="font-size: 8px; color: #888; margin-top: 4px;">${escapeHtml(taglineText)}</div>
         </div>
       </body>
     </html>

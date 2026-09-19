@@ -355,6 +355,17 @@ export function SaleDetailDrawer({
         (currentSale.amount_received
           ? Math.max(0, currentSale.amount_received - currentSale.total_amount)
           : 0),
+      branch_tagline: "Govt. Approved Model Pharmacy",
+      footer_thank_you: "*** THANK YOU · GET WELL SOON ***",
+      footer_return_policy:
+        "Returns accepted within 7 days with original receipt. Cold-chain items & cut strips are non-returnable.",
+      footer_helpline: "+880 1700-000000",
+      footer_tagline: "PharmaDaily Cloud POS",
+      show_barcode: true,
+      show_batch_expiry: true,
+      show_customer_info: true,
+      show_cashier_info: true,
+      show_amount_in_words: true,
     };
   }, [currentSale]);
 

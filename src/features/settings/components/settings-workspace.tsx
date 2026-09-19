@@ -70,6 +70,7 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { saveSettingsBatchAction } from "@/features/settings/actions";
 import { PosSettingsView } from "./pos-settings-view";
+import { ReceiptCustomizationForm } from "./receipt-customization-form";
 
 // ---------------------------------------------------------------------------
 // TYPES
@@ -815,49 +816,13 @@ export function SettingsWorkspace({
           {/* TAB 9: PRINTING */}
           {/* =============================================================== */}
           {activeTab === "printing" && (
-            <div className="p-6 space-y-6">
-              <div className="border-b border-border/40 pb-4 space-y-1">
-                <h2 className="text-sm font-bold uppercase tracking-wider text-foreground">
-                  RECEIPT PRINTER & LAYOUT
-                </h2>
-                <p className="text-xs text-muted-foreground">
-                  Hardware ESC/POS printer formats, thermal paper sizes, and receipt branding notes.
-                </p>
-              </div>
-
-              <div className="space-y-4 max-w-2xl">
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold">Thermal Paper Width</Label>
-                  <Select
-                    value={formState.receipt_paper_size}
-                    onValueChange={(val) => handleFieldChange("receipt_paper_size", val)}
-                  >
-                    <SelectTrigger className="h-9 text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="58mm">58mm Thermal Receipt (Compact)</SelectItem>
-                      <SelectItem value="80mm">80mm Thermal Receipt (Standard POS)</SelectItem>
-                      <SelectItem value="a4">A4 Full Page Laser / Inkjet Invoice</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label htmlFor="receipt_footer_text" className="text-xs font-semibold">
-                    Receipt Footer Message
-                  </Label>
-                  <Input
-                    id="receipt_footer_text"
-                    value={formState.receipt_footer_text}
-                    onChange={(e) => handleFieldChange("receipt_footer_text", e.target.value)}
-                    className="h-9 text-xs"
-                  />
-                  <p className="text-[11px] text-muted-foreground">
-                    Printed at the bottom of every customer cash receipt.
-                  </p>
-                </div>
-              </div>
+            <div className="p-6">
+              <ReceiptCustomizationForm
+                initialValues={initialValues}
+                branchId={branchId}
+                branchName={branchName}
+                isSuperAdmin={isSuperAdmin}
+              />
             </div>
           )}
 

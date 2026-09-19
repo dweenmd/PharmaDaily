@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   AlertCircle,
@@ -682,6 +683,22 @@ export function PosSettingsView({
                   Printed at the base of every thermal till receipt.
                 </p>
               </div>
+            </div>
+
+            {/* Direct Link to Super Admin Receipt Customization */}
+            <div className="p-3.5 rounded-xl border border-primary/20 bg-primary/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="space-y-0.5">
+                <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                  <Sparkles className="size-3.5 text-primary" />
+                  Full Header & Footer Customization
+                </span>
+                <p className="text-[11px] text-muted-foreground">
+                  Customize pharmacy name, DGDA drug lic, VAT BIN, return policy terms, and live thermal preview.
+                </p>
+              </div>
+              <Button asChild size="sm" variant="outline" className="text-xs h-8 shrink-0">
+                <Link href="/settings">Open Printing Workspace</Link>
+              </Button>
             </div>
           </div>
         </section>
