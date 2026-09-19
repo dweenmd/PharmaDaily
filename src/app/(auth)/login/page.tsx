@@ -1,12 +1,23 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
-import { CheckCircle2, Lock, Pill, ShieldCheck } from "lucide-react";
+import {
+  Boxes,
+  Building2,
+  Check,
+  CheckCircle2,
+  Lock,
+  Pill,
+  Receipt,
+  ShieldCheck,
+  Zap,
+} from "lucide-react";
 
 import { LoginForm } from "@/features/auth/components/login-form";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export const metadata: Metadata = {
   title: "Sign In · PharmaDaily Enterprise",
+  description: "Enterprise pharmacy management, FEFO inventory, and point-of-sale login",
 };
 
 function LoginFormSkeleton() {
@@ -31,90 +42,144 @@ function LoginFormSkeleton() {
 
 export default function LoginPage() {
   return (
-    <div className="grid min-h-screen w-full lg:grid-cols-12 bg-background">
-      {/* ================= Left Side: Clean Enterprise Branding ================= */}
-      <div className="hidden lg:flex lg:col-span-5 xl:col-span-5 bg-[#0e1013] text-white flex-col justify-between p-10 xl:p-14 border-r border-zinc-800/80 relative overflow-hidden select-none">
-        {/* Subtle monochrome pharmacy grid / lattice background pattern */}
-        <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:20px_20px]" />
-        <div className="absolute -right-16 -bottom-16 size-80 rounded-full border border-zinc-800/40 opacity-20 pointer-events-none" />
-        <div className="absolute -right-28 -bottom-28 size-96 rounded-full border border-zinc-800/20 opacity-20 pointer-events-none" />
+    <div className="grid min-h-screen w-full lg:grid-cols-2 bg-white dark:bg-zinc-950 font-sans">
+      {/* =================================================================== */}
+      {/* LEFT SIDE: Minimalist Monochrome Enterprise Pharmacy Showcase     */}
+      {/* =================================================================== */}
+      <div className="hidden lg:flex flex-col justify-between bg-zinc-950 text-white p-12 xl:p-16 border-r border-zinc-800/80 relative overflow-hidden select-none">
+        {/* Subtle geometric dot grid pattern */}
+        <div className="absolute inset-0 opacity-[0.035] pointer-events-none bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:24px_24px]" />
 
-        {/* Top: Logo & Title */}
+        {/* Minimalist Rx & Capsule Watermark (Subtle pharmacy visual without clutter) */}
+        <div className="absolute -right-12 -bottom-12 size-96 rounded-full border border-zinc-800/40 opacity-30 pointer-events-none" />
+        <div className="absolute -right-24 -bottom-24 size-[480px] rounded-full border border-zinc-800/20 opacity-20 pointer-events-none" />
+        <div className="absolute right-8 bottom-8 text-zinc-800/20 font-serif font-black text-8xl pointer-events-none select-none">
+          Rx
+        </div>
+
+        {/* 1. Header: Brand Logo & Title */}
         <div className="relative z-10">
           <div className="flex items-center gap-3">
             <div className="flex aspect-square size-10 items-center justify-center rounded-xl bg-zinc-900 border border-zinc-800 text-white shadow-xs">
-              <Pill className="size-5 text-white" />
+              <Pill className="size-5 text-zinc-100" />
             </div>
             <div>
-              <span className="font-bold tracking-tight text-white text-lg">PharmaDaily</span>
+              <div className="flex items-center gap-2">
+                <span className="font-bold tracking-tight text-white text-lg">PharmaDaily</span>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-400 font-semibold">
+                  Enterprise
+                </span>
+              </div>
               <p className="text-zinc-500 text-xs font-medium">Pharmacy Management System</p>
             </div>
           </div>
         </div>
 
-        {/* Center: Tagline & Enterprise Capabilities */}
-        <div className="relative z-10 space-y-6 max-w-md my-auto">
+        {/* 2. Center: Pharmacy Benefits Showcase */}
+        <div className="relative z-10 space-y-8 max-w-md my-auto">
+          {/* Main Headline & Narrative */}
           <div className="space-y-3">
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-400 text-xs font-mono">
-              <span className="size-1.5 rounded-full bg-emerald-500" />
-              <span>Enterprise Edition</span>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-zinc-900/80 border border-zinc-800 text-zinc-400 text-xs font-mono">
+              <span className="size-1.5 rounded-full bg-zinc-300" />
+              <span>DGDA & NBR Ready</span>
             </div>
-            <h1 className="text-2xl xl:text-3xl font-bold tracking-tight text-white leading-snug">
+
+            <h1 className="text-3xl xl:text-4xl font-extrabold tracking-tight text-white leading-tight">
               Manage your pharmacy, inventory and sales in one place.
             </h1>
-            <p className="text-sm text-zinc-400 leading-relaxed">
-              Designed for retail pharmacies, hospital dispensaries, and pharmacy chains with real-time FEFO batch control, split-second POS checkout, and bilingual invoices.
+
+            <p className="text-xs xl:text-sm text-zinc-400 leading-relaxed">
+              Designed for retail pharmacies, hospital dispensaries, and multi-branch pharmacy chains with real-time FEFO batch control, split-second POS checkout, and bilingual invoices.
             </p>
           </div>
 
-          <div className="space-y-3 pt-2">
-            <div className="flex items-start gap-3">
-              <div className="size-5 rounded-md bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-300 mt-0.5 shrink-0">
-                <CheckCircle2 className="size-3.5 text-zinc-300" />
-              </div>
-              <p className="text-xs text-zinc-300">
-                <strong className="text-white font-semibold">Counter-Optimized POS:</strong> Instant barcode scanner, keyboard navigation, and offline till resilience.
-              </p>
+          {/* Subtle Pharmacy Capability Metric Badge (No clutter, crisp monochrome) */}
+          <div className="p-3.5 rounded-xl bg-zinc-900/60 border border-zinc-800/80 grid grid-cols-3 gap-2 text-center text-zinc-300">
+            <div className="space-y-0.5 border-r border-zinc-800/80 pr-2">
+              <span className="text-[10px] font-mono uppercase text-zinc-500 block">Till Speed</span>
+              <span className="text-xs font-bold font-mono text-white">&lt; 1.0s Scan</span>
             </div>
-            <div className="flex items-start gap-3">
-              <div className="size-5 rounded-md bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-300 mt-0.5 shrink-0">
-                <CheckCircle2 className="size-3.5 text-zinc-300" />
-              </div>
-              <p className="text-xs text-zinc-300">
-                <strong className="text-white font-semibold">Inventory Intelligence:</strong> FEFO expiry prioritization, low-stock warnings, and purchase consignments.
-              </p>
+            <div className="space-y-0.5 border-r border-zinc-800/80 pr-2">
+              <span className="text-[10px] font-mono uppercase text-zinc-500 block">FEFO Safety</span>
+              <span className="text-xs font-bold font-mono text-white">100% Tracked</span>
             </div>
+            <div className="space-y-0.5">
+              <span className="text-[10px] font-mono uppercase text-zinc-500 block">Outlets</span>
+              <span className="text-xs font-bold font-mono text-white">Multi-Branch</span>
+            </div>
+          </div>
+
+          {/* 4 Core Pharmacy Benefits as requested */}
+          <div className="space-y-4 pt-1">
+            {/* Benefit 1: Fast POS */}
             <div className="flex items-start gap-3">
-              <div className="size-5 rounded-md bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-300 mt-0.5 shrink-0">
-                <CheckCircle2 className="size-3.5 text-zinc-300" />
+              <div className="size-6 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-200 mt-0.5 shrink-0">
+                <Zap className="size-3.5" />
               </div>
-              <p className="text-xs text-zinc-300">
-                <strong className="text-white font-semibold">Role-Based Security:</strong> Isolated multi-tier access control for Cashiers, Pharmacists, and Managers.
-              </p>
+              <div className="text-xs text-zinc-400 leading-normal">
+                <strong className="text-white font-semibold block text-zinc-200">Fast POS Checkout:</strong>
+                Sub-second barcode scanning, keyboard hotkeys (F9/F4), 80mm/58mm thermal receipts, and offline till resilience.
+              </div>
+            </div>
+
+            {/* Benefit 2: FEFO Inventory */}
+            <div className="flex items-start gap-3">
+              <div className="size-6 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-200 mt-0.5 shrink-0">
+                <Boxes className="size-3.5" />
+              </div>
+              <div className="text-xs text-zinc-400 leading-normal">
+                <strong className="text-white font-semibold block text-zinc-200">FEFO Inventory Governance:</strong>
+                First-Expiring First-Out batch automation, near-expiry alerts, zero-expired drug safety, and stock reconciliation.
+              </div>
+            </div>
+
+            {/* Benefit 3: Multi-Branch Support */}
+            <div className="flex items-start gap-3">
+              <div className="size-6 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-200 mt-0.5 shrink-0">
+                <Building2 className="size-3.5" />
+              </div>
+              <div className="text-xs text-zinc-400 leading-normal">
+                <strong className="text-white font-semibold block text-zinc-200">Multi-Branch Management:</strong>
+                Centralized chainwide inventory oversight, inter-branch stock transfers, and isolated cash register floats.
+              </div>
+            </div>
+
+            {/* Benefit 4: Role-Based Security */}
+            <div className="flex items-start gap-3">
+              <div className="size-6 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-200 mt-0.5 shrink-0">
+                <ShieldCheck className="size-3.5" />
+              </div>
+              <div className="text-xs text-zinc-400 leading-normal">
+                <strong className="text-white font-semibold block text-zinc-200">Role-Based Security:</strong>
+                Strict multi-tier permission isolation for Super Admins, Branch Managers, Pharmacists, and Cashiers with audit trails.
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Bottom: Security & System Status */}
+        {/* 3. Bottom: System Status & Security Assurance */}
         <div className="relative z-10 pt-6 border-t border-zinc-800/80 flex items-center justify-between text-xs text-zinc-500">
           <div className="flex items-center gap-2">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-            </span>
+            <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
             <span className="font-medium text-zinc-400 text-[11px]">System Status: Operational</span>
           </div>
-          <span className="text-[11px] font-mono text-zinc-500">256-Bit SSL</span>
+          <div className="flex items-center gap-2 font-mono text-[11px] text-zinc-500">
+            <span>256-Bit TLS</span>
+            <span>·</span>
+            <span>Cloud POS</span>
+          </div>
         </div>
       </div>
 
-      {/* ================= Right Side: Centered Login Form ================= */}
-      <div className="flex lg:col-span-7 xl:col-span-7 flex-col justify-center items-center px-6 py-12 sm:px-12 bg-background">
-        <div className="w-full max-w-[420px] space-y-7">
+      {/* =================================================================== */}
+      {/* RIGHT SIDE: Clean, Focused, Elevated Sign-In Workspace            */}
+      {/* =================================================================== */}
+      <div className="flex flex-col justify-center items-center px-6 py-12 sm:px-12 md:px-16 bg-white dark:bg-zinc-950">
+        <div className="w-full max-w-[400px] space-y-7">
           {/* Mobile Branding (Visible only on small screens) */}
-          <div className="lg:hidden flex items-center gap-2.5 mb-2">
-            <div className="flex aspect-square size-9 items-center justify-center rounded-xl bg-zinc-900 text-white shadow-xs">
-              <Pill className="size-4.5" />
+          <div className="lg:hidden flex items-center gap-3 pb-2 border-b border-zinc-200 dark:border-zinc-800">
+            <div className="flex aspect-square size-10 items-center justify-center rounded-xl bg-zinc-900 text-white shadow-xs">
+              <Pill className="size-5 text-white" />
             </div>
             <div>
               <span className="font-bold tracking-tight text-foreground text-base">PharmaDaily</span>
@@ -123,24 +188,28 @@ export default function LoginPage() {
           </div>
 
           {/* Form Header */}
-          <div className="space-y-1">
-            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">Welcome back</h2>
-            <p className="text-sm text-muted-foreground">Sign in to your pharmacy account</p>
+          <div className="space-y-1.5 text-left">
+            <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-zinc-950 dark:text-zinc-50">
+              Welcome back
+            </h2>
+            <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
+              Sign in to your pharmacy account to access your counter
+            </p>
           </div>
 
-          {/* Login Form */}
+          {/* Interactive Login Form Component */}
           <Suspense fallback={<LoginFormSkeleton />}>
             <LoginForm />
           </Suspense>
 
           {/* Security & Access Notices */}
-          <div className="pt-3 border-t border-zinc-200/80 dark:border-zinc-800 text-center space-y-1">
-            <p className="text-xs font-semibold text-foreground flex items-center justify-center gap-1.5">
+          <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800/80 text-center space-y-1">
+            <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400 flex items-center justify-center gap-1.5">
               <ShieldCheck className="size-3.5 text-zinc-500" />
-              Secure pharmacy management
+              <span>Secure pharmacy management</span>
             </p>
-            <p className="text-[11px] text-muted-foreground">
-              Protected by role-based access control
+            <p className="text-[11px] text-zinc-400 dark:text-zinc-500">
+              Protected by role-based access control & audit logging
             </p>
           </div>
         </div>
