@@ -31,9 +31,9 @@ import { toast } from "sonner";
 import {
   EXPENSE_CATEGORIES,
   PAYMENT_METHODS,
-  createExpenseAction,
   type ExpenseInput,
-} from "@/features/expenses/actions";
+} from "@/features/expenses/schemas";
+import { createExpenseAction } from "@/features/expenses/actions";
 import { type ExpenseListRow } from "@/features/expenses/queries";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";

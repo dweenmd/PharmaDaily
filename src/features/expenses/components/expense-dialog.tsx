@@ -7,9 +7,9 @@ import { toast } from "sonner";
 
 import {
   EXPENSE_CATEGORIES,
-  createExpenseAction,
   type ExpenseInput,
-} from "@/features/expenses/actions";
+} from "@/features/expenses/schemas";
+import { createExpenseAction } from "@/features/expenses/actions";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
