@@ -38,157 +38,13 @@ import {
 import { AddCustomerDialog } from "@/features/customers/components/add-customer-dialog";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
-
-export type CustomerCRMItem = {
-  id: string;
-  name: string;
-  phone: string | null;
-  email: string | null;
-  address: string | null;
-  total_purchases: number;
-  bills: number;
-  outstanding: number;
-  last_visit: string;
-  is_active: boolean;
-};
-
-export const DEMO_RAHIM: CustomerCRMItem = {
-  id: "cust-rahim-01",
-  name: "Md. Rahim",
-  phone: "017XXXXXXXX",
-  email: "rahim@email.com",
-  address: "House 14, Road 5, Dhanmondi, Dhaka",
-  total_purchases: 8450.0,
-  bills: 24,
-  outstanding: 0.0,
-  last_visit: "2026-09-19",
-  is_active: true,
-};
-
-// Default CRM demo dataset featuring the requested Md. Rahim example
-export const DEFAULT_CRM_CUSTOMERS: CustomerCRMItem[] = [
+import {
+  CustomerCRMItem,
+  DEFAULT_CRM_CUSTOMERS,
   DEMO_RAHIM,
-  {
-    id: "cust-sadia-02",
-    name: "Sadia Sultana",
-    phone: "01819998877",
-    email: "sadia@example.com",
-    address: "Plot 8, Sector 3, Uttara, Dhaka",
-    total_purchases: 14200.0,
-    bills: 36,
-    outstanding: 0.0,
-    last_visit: "2026-09-18",
-    is_active: true,
-  },
-  {
-    id: "cust-rahim-c-03",
-    name: "Rahim Chowdhury",
-    phone: "01711223344",
-    email: "rahim.c@example.com",
-    address: "Mirpur 10, Dhaka",
-    total_purchases: 6780.0,
-    bills: 18,
-    outstanding: 250.0,
-    last_visit: "2026-09-15",
-    is_active: true,
-  },
-  {
-    id: "cust-farhana-04",
-    name: "Dr. Farhana Ahmed",
-    phone: "01923456789",
-    email: "farhana.dr@medmail.com",
-    address: "Gulshan 2, Dhaka",
-    total_purchases: 32500.0,
-    bills: 52,
-    outstanding: 0.0,
-    last_visit: "2026-09-14",
-    is_active: true,
-  },
-  {
-    id: "cust-kamal-05",
-    name: "Kamal Hossain",
-    phone: "01678901234",
-    email: "kamal.h@gmail.com",
-    address: "Mohakhali Wireless Gate, Dhaka",
-    total_purchases: 3450.0,
-    bills: 9,
-    outstanding: 1200.0,
-    last_visit: "2026-09-10",
-    is_active: true,
-  },
-  {
-    id: "cust-nasreen-06",
-    name: "Nasreen Akter",
-    phone: "01555667788",
-    email: "nasreen@outlook.com",
-    address: "Lalmatia Block C, Dhaka",
-    total_purchases: 1250.0,
-    bills: 4,
-    outstanding: 0.0,
-    last_visit: "2026-08-02",
-    is_active: false,
-  },
-  {
-    id: "cust-motin-07",
-    name: "Abdul Motin",
-    phone: "01722334455",
-    email: "motin.abdul@yahoo.com",
-    address: "Banani 11, Dhaka",
-    total_purchases: 9120.0,
-    bills: 21,
-    outstanding: 450.0,
-    last_visit: "2026-08-28",
-    is_active: true,
-  },
-  {
-    id: "cust-tasnim-08",
-    name: "Tasnim Jahan",
-    phone: "01833445566",
-    email: "tasnim.j@gmail.com",
-    address: "Badda DIT Project, Dhaka",
-    total_purchases: 4900.0,
-    bills: 12,
-    outstanding: 0.0,
-    last_visit: "2026-09-12",
-    is_active: true,
-  },
-  {
-    id: "cust-enamul-09",
-    name: "Enamul Haque",
-    phone: "01755667788",
-    email: "enamul.haque@corp.bd",
-    address: "Kawran Bazar, Dhaka",
-    total_purchases: 18900.0,
-    bills: 41,
-    outstanding: 850.0,
-    last_visit: "2026-09-11",
-    is_active: true,
-  },
-  {
-    id: "cust-monira-10",
-    name: "Monira Begum",
-    phone: "01944556677",
-    email: "monira.b@gmail.com",
-    address: "Farmgate, Green Road, Dhaka",
-    total_purchases: 2150.0,
-    bills: 6,
-    outstanding: 0.0,
-    last_visit: "2026-07-20",
-    is_active: false,
-  },
-  {
-    id: "cust-zahid-11",
-    name: "Zahid Hasan",
-    phone: "01866778899",
-    email: "zahid.h@outlook.com",
-    address: "Panthapath, Dhaka",
-    total_purchases: 5400.0,
-    bills: 15,
-    outstanding: 0.0,
-    last_visit: "2026-09-08",
-    is_active: true,
-  },
-];
+} from "@/features/customers/constants";
+
+export { DEFAULT_CRM_CUSTOMERS, DEMO_RAHIM, type CustomerCRMItem };
 
 type SortColumn = "name" | "total_purchases" | "bills" | "outstanding" | "last_visit";
 type SortDirection = "asc" | "desc";
@@ -201,16 +57,21 @@ interface CustomerManagementViewProps {
 export function CustomerManagementView({
   initialCustomers = DEFAULT_CRM_CUSTOMERS,
 }: CustomerManagementViewProps) {
-  // Merge prop data with default CRM records
+  // Merge prop data with default CRM records safely
   const allCustomers: CustomerCRMItem[] = React.useMemo(() => {
-    if (!initialCustomers || initialCustomers.length === 0) {
+    const validCustomers = (initialCustomers ?? []).filter(
+      (c): c is CustomerCRMItem => Boolean(c && c.id && c.name),
+    );
+    if (validCustomers.length === 0) {
       return DEFAULT_CRM_CUSTOMERS;
     }
-    const hasRahim = initialCustomers.some((c) => c.name.toLowerCase().includes("rahim"));
-    if (!hasRahim) {
-      return [DEMO_RAHIM, ...initialCustomers];
+    const hasRahim = validCustomers.some(
+      (c) => c?.name && c.name.toLowerCase().includes("rahim"),
+    );
+    if (!hasRahim && DEMO_RAHIM) {
+      return [DEMO_RAHIM, ...validCustomers];
     }
-    return initialCustomers;
+    return validCustomers;
   }, [initialCustomers]);
 
   // State

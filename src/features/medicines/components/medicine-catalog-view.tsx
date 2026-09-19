@@ -65,26 +65,12 @@ import {
 } from "@/components/ui/table";
 import { formatCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import {
+  DEFAULT_CATALOG_MEDICINES,
+  type MedicineCatalogItem,
+} from "@/features/medicines/constants";
 
-export type MedicineCatalogItem = {
-  id: string;
-  name: string;
-  brand_name: string | null;
-  generic_name: string | null;
-  dosage_form: string | null;
-  strength: string | null;
-  barcode: string | null;
-  branches_count: number;
-  branches_text: string;
-  category_name?: string | null;
-  manufacturer: string | null;
-  prescription_required: boolean;
-  controlled_drug: boolean;
-  is_active: boolean;
-  reorder_level?: number;
-  mrp?: number;
-  selling_price?: number;
-};
+export { DEFAULT_CATALOG_MEDICINES, type MedicineCatalogItem };
 
 // Compact medicine dosage thumbnail
 function MedicineThumbnail({ form }: { form?: string | null }) {
@@ -124,199 +110,6 @@ function MedicineThumbnail({ form }: { form?: string | null }) {
   );
 }
 
-export const DEFAULT_CATALOG_MEDICINES: MedicineCatalogItem[] = [
-  {
-    id: "med-1",
-    name: "Paracetamol 500 mg",
-    brand_name: "Napa",
-    generic_name: "Paracetamol",
-    dosage_form: "Tablet",
-    strength: "500 mg",
-    barcode: "894110020101",
-    branches_count: 3,
-    branches_text: "All Branches (3)",
-    category_name: "Analgesic & Antipyretic",
-    manufacturer: "Beximco Pharma",
-    prescription_required: false,
-    controlled_drug: false,
-    is_active: true,
-    mrp: 15.0,
-    selling_price: 15.0,
-    reorder_level: 50,
-  },
-  {
-    id: "med-2",
-    name: "Omeprazole 20 mg",
-    brand_name: "Seclo",
-    generic_name: "Omeprazole",
-    dosage_form: "Capsule",
-    strength: "20 mg",
-    barcode: "894110030202",
-    branches_count: 3,
-    branches_text: "All Branches (3)",
-    category_name: "Anti-Ulcerant",
-    manufacturer: "Square Pharma",
-    prescription_required: false,
-    controlled_drug: false,
-    is_active: true,
-    mrp: 50.0,
-    selling_price: 50.0,
-    reorder_level: 30,
-  },
-  {
-    id: "med-3",
-    name: "Azithromycin 200 mg/5 ml",
-    brand_name: "Zithrox",
-    generic_name: "Azithromycin",
-    dosage_form: "Syrup",
-    strength: "200 mg/5 ml",
-    barcode: "894110040303",
-    branches_count: 2,
-    branches_text: "BR-HQ, BR-02",
-    category_name: "Antibiotic",
-    manufacturer: "Beximco Pharma",
-    prescription_required: true,
-    controlled_drug: false,
-    is_active: true,
-    mrp: 150.0,
-    selling_price: 150.0,
-    reorder_level: 15,
-  },
-  {
-    id: "med-4",
-    name: "Progesterone 200 mg",
-    brand_name: "Gynasone",
-    generic_name: "Progesterone",
-    dosage_form: "Capsule",
-    strength: "200 mg",
-    barcode: "894110050404",
-    branches_count: 3,
-    branches_text: "All Branches (3)",
-    category_name: "Hormone",
-    manufacturer: "Square Pharma",
-    prescription_required: true,
-    controlled_drug: false,
-    is_active: true,
-    mrp: 280.0,
-    selling_price: 280.0,
-    reorder_level: 20,
-  },
-  {
-    id: "med-5",
-    name: "Triamcinolone Acetonide",
-    brand_name: "Kenacort",
-    generic_name: "Triamcinolone",
-    dosage_form: "Injection",
-    strength: "40 mg/ml",
-    barcode: "894110060505",
-    branches_count: 1,
-    branches_text: "BR-HQ",
-    category_name: "Corticosteroid",
-    manufacturer: "Incepta Pharma",
-    prescription_required: true,
-    controlled_drug: false,
-    is_active: true,
-    mrp: 195.0,
-    selling_price: 195.0,
-    reorder_level: 10,
-  },
-  {
-    id: "med-6",
-    name: "Clonidine Hydrochloride",
-    brand_name: "Catapres",
-    generic_name: "Clonidine",
-    dosage_form: "Tablet",
-    strength: "100 mcg",
-    barcode: "894110070606",
-    branches_count: 3,
-    branches_text: "All Branches (3)",
-    category_name: "Antihypertensive",
-    manufacturer: "Renata Limited",
-    prescription_required: true,
-    controlled_drug: false,
-    is_active: true,
-    mrp: 65.0,
-    selling_price: 65.0,
-    reorder_level: 25,
-  },
-  {
-    id: "med-7",
-    name: "Metformin 500 mg",
-    brand_name: "Comet",
-    generic_name: "Metformin Hydrochloride",
-    dosage_form: "Tablet",
-    strength: "500 mg",
-    barcode: "894110080707",
-    branches_count: 3,
-    branches_text: "All Branches (3)",
-    category_name: "Antidiabetic",
-    manufacturer: "Square Pharma",
-    prescription_required: true,
-    controlled_drug: false,
-    is_active: true,
-    mrp: 45.0,
-    selling_price: 45.0,
-    reorder_level: 40,
-  },
-  {
-    id: "med-8",
-    name: "Amoxicillin 500 mg",
-    brand_name: "Moxacil",
-    generic_name: "Amoxicillin Trihydrate",
-    dosage_form: "Capsule",
-    strength: "500 mg",
-    barcode: "894110090808",
-    branches_count: 3,
-    branches_text: "All Branches (3)",
-    category_name: "Antibiotic",
-    manufacturer: "Square Pharma",
-    prescription_required: true,
-    controlled_drug: false,
-    is_active: true,
-    mrp: 70.0,
-    selling_price: 70.0,
-    reorder_level: 30,
-  },
-  {
-    id: "med-9",
-    name: "Cefuroxime 500 mg",
-    brand_name: "Kilbac",
-    generic_name: "Cefuroxime Axetil",
-    dosage_form: "Tablet",
-    strength: "500 mg",
-    barcode: "894110100909",
-    branches_count: 2,
-    branches_text: "BR-HQ, BR-02",
-    category_name: "Antibiotic",
-    manufacturer: "Incepta Pharma",
-    prescription_required: true,
-    controlled_drug: false,
-    is_active: true,
-    mrp: 350.0,
-    selling_price: 350.0,
-    reorder_level: 15,
-  },
-  {
-    id: "med-10",
-    name: "Montelukast 10 mg",
-    brand_name: "Monas",
-    generic_name: "Montelukast Sodium",
-    dosage_form: "Tablet",
-    strength: "10 mg",
-    barcode: "894110111010",
-    branches_count: 3,
-    branches_text: "All Branches (3)",
-    category_name: "Respiratory",
-    manufacturer: "Acme Labs",
-    prescription_required: false,
-    controlled_drug: false,
-    is_active: true,
-    mrp: 160.0,
-    selling_price: 160.0,
-    reorder_level: 35,
-  },
-];
-
 interface MedicineCatalogViewProps {
   initialMedicines?: MedicineCatalogItem[];
   canEdit?: boolean;
@@ -326,18 +119,23 @@ export function MedicineCatalogView({
   initialMedicines = DEFAULT_CATALOG_MEDICINES,
   canEdit = true,
 }: MedicineCatalogViewProps) {
-  // Merge prop items with default demo items
+  // Merge prop items with default demo items safely
   const allMedicines: MedicineCatalogItem[] = React.useMemo(() => {
-    if (!initialMedicines || initialMedicines.length === 0) {
+    const validMedicines = (initialMedicines ?? []).filter(
+      (m): m is MedicineCatalogItem => Boolean(m && m.id && m.name),
+    );
+    if (validMedicines.length === 0) {
       return DEFAULT_CATALOG_MEDICINES;
     }
-    const hasNapa = initialMedicines.some((m) =>
-      m.name.toLowerCase().includes("paracetamol") || m.brand_name?.toLowerCase().includes("napa"),
+    const hasNapa = validMedicines.some(
+      (m) =>
+        (m?.name && m.name.toLowerCase().includes("paracetamol")) ||
+        (m?.brand_name && m.brand_name.toLowerCase().includes("napa")),
     );
-    if (!hasNapa) {
-      return [DEFAULT_CATALOG_MEDICINES[0]!, ...initialMedicines];
+    if (!hasNapa && DEFAULT_CATALOG_MEDICINES[0]) {
+      return [DEFAULT_CATALOG_MEDICINES[0], ...validMedicines];
     }
-    return initialMedicines;
+    return validMedicines;
   }, [initialMedicines]);
 
   // Filter States
