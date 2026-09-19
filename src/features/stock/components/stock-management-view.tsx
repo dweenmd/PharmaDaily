@@ -601,7 +601,7 @@ export function StockManagementView({
       </div>
 
       {/* 2. Summary KPI Cards (Total Items, Low Stock, Expiring Soon, Out of Stock) */}
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-1 min-[440px]:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {/* KPI 1: Total Items */}
         <Card className="border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-xs">
           <CardHeader className="flex flex-row items-center justify-between pb-1.5 pt-4 px-4">
@@ -739,7 +739,7 @@ export function StockManagementView({
 
         {/* Filter Pills (All, Low Stock, Expiring, Out of Stock, In Stock) */}
         <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-zinc-100 dark:border-zinc-800/80">
-          <div className="flex flex-wrap items-center gap-1">
+          <div className="flex overflow-x-auto pb-1 gap-1 no-scrollbar scroll-smooth w-full sm:w-auto">
             {(
               [
                 { key: "All", label: "All", count: summary.totalItems },

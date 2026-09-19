@@ -302,6 +302,7 @@ export function PosTerminal({
   const [selectedIndex, setSelectedIndex] = React.useState(0);
 
   // Cart & Customer State
+  const [mobilePosTab, setMobilePosTab] = React.useState<"catalog" | "cart">("catalog");
   const [lines, setLines] = React.useState<CartLine[]>([]);
   const [customer, setCustomer] = React.useState<PosCustomer | null>(null);
   const [customerSearch, setCustomerSearch] = React.useState("");
@@ -792,12 +793,45 @@ export function PosTerminal({
         </div>
       </div>
 
+      {/* ================= Mobile View Switcher (< lg only) ================= */}
+      <div className="flex lg:hidden items-center p-1 rounded-xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
+        <button
+          type="button"
+          onClick={() => setMobilePosTab("catalog")}
+          className={cn(
+            "flex-1 py-2 text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer",
+            mobilePosTab === "catalog"
+              ? "bg-white dark:bg-zinc-800 text-foreground shadow-xs font-bold"
+              : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          <Boxes className="size-3.5" />
+          <span>Medicine Catalog</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setMobilePosTab("cart")}
+          className={cn(
+            "flex-1 py-2 text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer relative",
+            mobilePosTab === "cart"
+              ? "bg-white dark:bg-zinc-800 text-foreground shadow-xs font-bold"
+              : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          <ShoppingCart className="size-3.5" />
+          <span>Cart ({lines.reduce((s, l) => s + l.quantity, 0)})</span>
+          {lines.length > 0 && (
+            <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+          )}
+        </button>
+      </div>
+
       {/* ================= Main POS Grid: 2 Columns ================= */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 items-start">
-        {/* ================= LEFT COLUMN: Medicine Catalogue (7 cols on LG, 8 on XL) ================= */}
-        <div className="lg:col-span-7 xl:col-span-8 space-y-3.5">
+        {/* ================= LEFT COLUMN: Medicine Catalogue ================= */}
+        <div className={cn("lg:col-span-7 xl:col-span-8 space-y-3.5", mobilePosTab === "cart" ? "hidden lg:block" : "block")}>
           {/* Top Category Filter Pills */}
-          <div className="flex flex-wrap items-center gap-1.5">
+          <div className="flex overflow-x-auto pb-1 gap-1.5 no-scrollbar scroll-smooth">
             <button
               type="button"
               onClick={() => setCategoryFilter("all")}
@@ -1084,8 +1118,8 @@ export function PosTerminal({
           </Card>
         </div>
 
-        {/* ================= RIGHT COLUMN: Customer, Cart & Payment (5 cols on LG, 4 on XL) ================= */}
-        <div className="lg:col-span-5 xl:col-span-4 space-y-3.5 lg:sticky lg:top-18">
+        {/* ================= RIGHT COLUMN: Customer, Cart & Payment ================= */}
+        <div className={cn("lg:col-span-5 xl:col-span-4 space-y-3.5 lg:sticky lg:top-18", mobilePosTab === "catalog" ? "hidden lg:block" : "block")}>
           {/* 1. Customer Section */}
           <Card className="rounded-2xl border border-zinc-200/90 dark:border-zinc-800/80 bg-white dark:bg-zinc-950 p-4 shadow-2xs space-y-3">
             <div className="flex items-center justify-between">
@@ -1593,6 +1627,32 @@ export function PosTerminal({
           setCustomerSearch("");
         }}
       />
+
+      {/* Sticky Mobile Cart Floating Bar */}
+      {lines.length > 0 && mobilePosTab === "catalog" && (
+        <div className="lg:hidden fixed bottom-3 left-3 right-3 z-40 p-3 rounded-2xl bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 shadow-2xl flex items-center justify-between border border-zinc-800 dark:border-zinc-200">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="size-9 rounded-xl bg-zinc-850 dark:bg-zinc-100 flex items-center justify-center text-white dark:text-zinc-900 shrink-0">
+              <ShoppingCart className="size-4" />
+            </div>
+            <div className="min-w-0">
+              <div className="font-bold text-sm leading-tight truncate">
+                {lines.reduce((s, l) => s + l.quantity, 0)} items · {formatCurrency(total)}
+              </div>
+              <div className="text-[11px] text-zinc-400 dark:text-zinc-600">
+                Ready for checkout
+              </div>
+            </div>
+          </div>
+          <Button
+            size="sm"
+            onClick={() => setMobilePosTab("cart")}
+            className="bg-white text-zinc-950 hover:bg-zinc-100 dark:bg-zinc-950 dark:text-white dark:hover:bg-zinc-900 font-bold text-xs h-9 rounded-xl px-4 shrink-0 shadow-sm cursor-pointer"
+          >
+            Review Cart →
+          </Button>
+        </div>
+      )}
 
       <DiscountApprovalDialog
         open={approvalOpen}

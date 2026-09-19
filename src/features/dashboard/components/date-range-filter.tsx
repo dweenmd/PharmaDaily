@@ -44,7 +44,7 @@ export function DateRangeFilter() {
   }
 
   return (
-    <div className="inline-flex items-center rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-100/70 dark:bg-zinc-900/80 p-0.5 text-xs select-none">
+    <div className="flex overflow-x-auto max-w-full items-center rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-100/70 dark:bg-zinc-900/80 p-0.5 text-xs select-none no-scrollbar">
       {RANGE_OPTIONS.map((opt) => {
         const isActive = currentRange === opt.id;
         return (

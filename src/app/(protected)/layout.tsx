@@ -67,7 +67,7 @@ export default async function ProtectedLayout({ children }: LayoutProps<"/">) {
 
         <GlobalSearchCommand />
 
-        <main id="main-content" className="flex-1 p-4 sm:p-6">
+        <main id="main-content" className="flex-1 p-3 sm:p-5 md:p-6">
           {children}
         </main>
       </SidebarInset>

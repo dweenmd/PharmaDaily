@@ -408,7 +408,7 @@ export function ExpensesClient({ expenses, branchId, canAdd, branches = [] }: Pr
         </div>
 
         {/* Categories Pills (All, Rent, Utilities, Salary, Transport, Maintenance, Supplies, Other) */}
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className="flex overflow-x-auto pb-1 gap-1.5 no-scrollbar scroll-smooth w-full sm:w-auto">
           <button
             onClick={() => setSelectedCategory("All")}
             className={cn(

@@ -273,6 +273,29 @@ export function SettingsWorkspace({
         </div>
       </div>
 
+      {/* Mobile Horizontal Settings Tab Strip (< md) */}
+      <div className="flex md:hidden overflow-x-auto pb-2 gap-1.5 no-scrollbar scroll-smooth">
+        {SETTINGS_NAV_ITEMS.map((item) => {
+          const Icon = item.icon;
+          const isActive = activeTab === item.id;
+          return (
+            <button
+              key={item.id}
+              onClick={() => setActiveTab(item.id)}
+              className={cn(
+                "h-8.5 px-3.5 rounded-xl text-xs font-semibold whitespace-nowrap flex items-center gap-1.5 transition-all shrink-0 cursor-pointer select-none",
+                isActive
+                  ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-2xs"
+                  : "bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <Icon className="size-3.5" />
+              <span>{item.label}</span>
+            </button>
+          );
+        })}
+      </div>
+
       {/* =================================================================== */}
       {/* 2. CLEAN SETTINGS WORKSPACE (Left: Nav | Right: Content) */}
       {/* =================================================================== */}
@@ -280,7 +303,7 @@ export function SettingsWorkspace({
         {/* ----------------------------------------------------------------- */}
         {/* LEFT VERTICAL SETTINGS NAVIGATION (3 cols on md) */}
         {/* ----------------------------------------------------------------- */}
-        <nav className="md:col-span-4 lg:col-span-3 space-y-1">
+        <nav className="hidden md:block md:col-span-4 lg:col-span-3 space-y-1">
           <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-3 py-1.5 mb-1">
             System Workspace
           </div>

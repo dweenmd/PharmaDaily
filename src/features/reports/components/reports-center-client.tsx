@@ -465,7 +465,7 @@ export function ReportsCenterClient({ branches, currentBranchId, isSuperAdmin }:
         </div>
 
         {/* Category Jump Buttons: ALL, SALES, INVENTORY, FINANCE, OPERATIONS */}
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className="flex overflow-x-auto pb-1 gap-1.5 no-scrollbar scroll-smooth w-full sm:w-auto">
           {(["ALL", "SALES", "INVENTORY", "FINANCE", "OPERATIONS"] as ReportCategory[]).map((cat) => (
             <button
               key={cat}

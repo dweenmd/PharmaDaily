@@ -198,7 +198,7 @@ export function SalesListView({ initialSales, showBranch, canSell }: SalesListVi
         </div>
 
         {/* Filter Pills */}
-        <div className="flex items-center gap-1.5 self-end sm:self-auto">
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 sm:pb-0 w-full sm:w-auto">
           <button
             type="button"
             onClick={() => setStatusFilter("all")}

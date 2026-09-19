@@ -332,7 +332,7 @@ export function CustomerManagementView({
       </div>
 
       {/* 2. Summary KPI Section (4 Cards) */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+      <div className="grid grid-cols-1 min-[440px]:grid-cols-2 lg:grid-cols-4 gap-3.5">
         {/* Total Customers */}
         <Card className="rounded-2xl border border-zinc-200/90 dark:border-zinc-800/80 bg-white dark:bg-zinc-950 p-4 shadow-2xs">
           <div className="flex items-center justify-between">
@@ -420,12 +420,12 @@ export function CustomerManagementView({
         </div>
 
         {/* Filter Pills */}
-        <div className="flex items-center gap-1.5 flex-wrap">
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 sm:pb-0">
           <button
             type="button"
             onClick={() => setFilterTab("all")}
             className={cn(
-              "h-8.5 px-3.5 rounded-xl text-xs font-semibold transition-all select-none",
+              "h-8.5 px-3.5 rounded-xl text-xs font-semibold shrink-0 transition-all select-none",
               filterTab === "all"
                 ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-2xs"
                 : "bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-muted-foreground hover:text-foreground hover:bg-zinc-50 dark:hover:bg-zinc-900",
@@ -438,7 +438,7 @@ export function CustomerManagementView({
             type="button"
             onClick={() => setFilterTab("active")}
             className={cn(
-              "h-8.5 px-3.5 rounded-xl text-xs font-semibold transition-all select-none",
+              "h-8.5 px-3.5 rounded-xl text-xs font-semibold shrink-0 transition-all select-none",
               filterTab === "active"
                 ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-2xs"
                 : "bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-muted-foreground hover:text-foreground hover:bg-zinc-50 dark:hover:bg-zinc-900",
@@ -451,20 +451,20 @@ export function CustomerManagementView({
             type="button"
             onClick={() => setFilterTab("due")}
             className={cn(
-              "h-8.5 px-3.5 rounded-xl text-xs font-semibold transition-all select-none",
+              "h-8.5 px-3.5 rounded-xl text-xs font-semibold shrink-0 transition-all select-none",
               filterTab === "due"
                 ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-2xs"
                 : "bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-muted-foreground hover:text-foreground hover:bg-zinc-50 dark:hover:bg-zinc-900",
             )}
           >
-            Due ({customersWithDue.length})
+            Due Balance ({customersWithDue.length})
           </button>
 
           <button
             type="button"
             onClick={() => setFilterTab("inactive")}
             className={cn(
-              "h-8.5 px-3.5 rounded-xl text-xs font-semibold transition-all select-none",
+              "h-8.5 px-3.5 rounded-xl text-xs font-semibold shrink-0 transition-all select-none",
               filterTab === "inactive"
                 ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-2xs"
                 : "bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-muted-foreground hover:text-foreground hover:bg-zinc-50 dark:hover:bg-zinc-900",
@@ -475,10 +475,89 @@ export function CustomerManagementView({
         </div>
       </div>
 
-      {/* 4. Professional Monochrome Customer Table */}
+      {/* 4. Professional Monochrome Customer Table & Mobile Card View */}
       <Card className="rounded-2xl border border-zinc-200/90 dark:border-zinc-800/80 bg-white dark:bg-zinc-950 overflow-hidden shadow-2xs">
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
+          {/* Mobile Card List (< sm) */}
+          <div className="sm:hidden divide-y divide-zinc-100 dark:divide-zinc-800/60">
+            {paginatedCustomers.length === 0 ? (
+              <div className="p-8 text-center text-muted-foreground">
+                <Users className="size-8 mx-auto text-zinc-300 dark:text-zinc-700 mb-2" />
+                <p className="font-semibold text-foreground">No customer records match</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Try modifying your search or switching filter tabs.
+                </p>
+              </div>
+            ) : (
+              paginatedCustomers.map((cust) => {
+                const hasDue = cust.outstanding > 0;
+                return (
+                  <div key={cust.id} className="p-4 space-y-2.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="size-9 rounded-xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center font-bold text-xs text-zinc-700 dark:text-zinc-300 shrink-0 font-mono">
+                          {cust.name.slice(0, 2).toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-bold text-foreground text-sm truncate">{cust.name}</p>
+                          {cust.phone && (
+                            <p className="text-xs text-muted-foreground font-mono flex items-center gap-1 mt-0.5">
+                              <Phone className="size-3 text-zinc-400" />
+                              <span>{cust.phone}</span>
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "text-[10px] font-bold shrink-0",
+                          cust.is_active
+                            ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800"
+                            : "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400 border-zinc-300 dark:border-zinc-700",
+                        )}
+                      >
+                        {cust.is_active ? "Active" : "Inactive"}
+                      </Badge>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 pt-1 border-t border-zinc-100 dark:border-zinc-800/60 text-xs">
+                      <div>
+                        <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Total Spent</span>
+                        <p className="font-mono font-bold text-foreground">{formatCurrency(cust.total_purchases)}</p>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Due Balance</span>
+                        <p className={cn("font-mono font-bold", hasDue ? "text-amber-700 dark:text-amber-400" : "text-muted-foreground")}>
+                          {hasDue ? formatCurrency(cust.outstanding) : "৳0"}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-1">
+                      <span className="text-[11px] text-muted-foreground">
+                        {cust.bills} {cust.bills === 1 ? "bill" : "bills"} · {cust.last_visit ? formatDate(cust.last_visit) : "Never"}
+                      </span>
+                      <Button
+                        asChild
+                        variant="outline"
+                        size="sm"
+                        className="h-7.5 px-3 rounded-lg text-xs font-semibold gap-1 border-zinc-200 dark:border-zinc-800"
+                      >
+                        <Link href={`/customers/${cust.id}`}>
+                          <span>CRM Profile</span>
+                          <ChevronRight className="size-3" />
+                        </Link>
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* Desktop & Tablet Table (sm:) */}
+          <div className="hidden sm:block overflow-x-auto">
             <Table>
               <TableHeader>
                 <tr className="border-b border-zinc-200/80 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40 text-muted-foreground text-xs font-semibold">

@@ -59,6 +59,20 @@ export function AppHeader({
       </div>
 
       <div className="ml-auto flex items-center gap-1 sm:gap-2">
+        {/* Mobile Search Trigger */}
+        <button
+          type="button"
+          onClick={() => {
+            if (typeof window !== "undefined") {
+              window.dispatchEvent(new CustomEvent("open-global-search"));
+            }
+          }}
+          className="md:hidden size-8 rounded-lg flex items-center justify-center text-zinc-500 hover:text-foreground hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+          aria-label="Search formulary and invoices"
+        >
+          <Search className="size-4" />
+        </button>
+
         <SyncIndicator />
         <NotificationBell notifications={notifications} />
         <UserMenu name={name} role={role} branchName={activeBranch?.name ?? null} />

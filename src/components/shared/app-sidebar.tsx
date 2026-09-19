@@ -37,6 +37,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
+  useSidebar,
 } from "@/components/ui/sidebar";
 
 type NavItem = {
@@ -214,6 +215,7 @@ const NAV_GROUPS: NavGroup[] = [
 
 export function AppSidebar({ role }: { role: UserRole }) {
   const pathname = usePathname();
+  const { setOpenMobile, isMobile } = useSidebar();
 
   const groups = NAV_GROUPS.map((group) => ({
     ...group,
@@ -223,7 +225,13 @@ export function AppSidebar({ role }: { role: UserRole }) {
   return (
     <Sidebar collapsible="icon" className="border-r border-zinc-800/80 bg-[#0e1013]">
       <SidebarHeader className="border-b border-zinc-800/80 px-3.5 py-3.5 bg-[#0e1013]">
-        <Link href="/dashboard" className="flex items-center gap-3 group">
+        <Link
+          href="/dashboard"
+          onClick={() => {
+            if (isMobile) setOpenMobile(false);
+          }}
+          className="flex items-center gap-3 group"
+        >
           <div className="flex aspect-square size-8 items-center justify-center rounded-xl bg-zinc-900 border border-zinc-800 text-white shadow-xs group-hover:border-zinc-700 transition-colors shrink-0">
             <Pill className="size-4 text-white" />
           </div>
@@ -268,7 +276,13 @@ export function AppSidebar({ role }: { role: UserRole }) {
                               : "text-zinc-400 hover:text-white hover:bg-zinc-900/80",
                           )}
                         >
-                          <Link href={item.href} className="flex items-center justify-between w-full">
+                          <Link
+                            href={item.href}
+                            onClick={() => {
+                              if (isMobile) setOpenMobile(false);
+                            }}
+                            className="flex items-center justify-between w-full"
+                          >
                             <div className="flex items-center gap-2.5">
                               <item.icon className={cn("size-4 shrink-0", isActive ? "text-white" : "text-zinc-400")} />
                               <span>{item.title}</span>

@@ -350,7 +350,7 @@ export default async function DashboardPage({
       </div>
 
       {/* ================= 2. Top KPI Section (4 Tiles) ================= */}
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-1 min-[440px]:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {/* KPI 1: Today's Sales */}
         <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-card p-4 sm:p-5 shadow-2xs space-y-2">
           <div className="flex items-center justify-between">

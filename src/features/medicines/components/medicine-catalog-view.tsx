@@ -674,7 +674,82 @@ export function MedicineCatalogView({
       {/* 3. Professional Monochrome Medicine Table */}
       <Card className="rounded-2xl border border-zinc-200/90 dark:border-zinc-800/80 bg-white dark:bg-zinc-950 overflow-hidden shadow-2xs">
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
+          {/* Mobile Card List (sm:hidden) */}
+          <div className="sm:hidden divide-y divide-zinc-200 dark:divide-zinc-800">
+            {paginatedMedicines.length === 0 ? (
+              <div className="p-8 text-center text-xs text-muted-foreground">
+                No medicines found matching criteria.
+              </div>
+            ) : (
+              paginatedMedicines.map((item) => (
+                <div key={item.id} className="p-3.5 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <MedicineThumbnail form={item.dosage_form} />
+                      <div className="min-w-0">
+                        <Link
+                          href={`/medicines/${item.id}`}
+                          className="font-bold text-sm text-foreground hover:underline truncate block"
+                        >
+                          {item.name}
+                        </Link>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {item.generic_name || item.brand_name || "—"}{item.strength ? ` · ${item.strength}` : ""}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {item.is_active ? (
+                        <Badge variant="outline" className="text-[10px] font-bold bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800">
+                          Active
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-[10px] font-semibold bg-zinc-100 text-zinc-500 dark:bg-zinc-800">
+                          Inactive
+                        </Badge>
+                      )}
+                      {item.prescription_required && (
+                        <Badge variant="outline" className="text-[9px] font-bold bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-800 px-1 py-0">
+                          Rx
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs pt-1 border-t border-zinc-100 dark:border-zinc-850">
+                    <div className="flex items-center gap-2 text-[11px] text-muted-foreground font-mono">
+                      {item.barcode && <span>#{item.barcode}</span>}
+                      <span>·</span>
+                      <span>{item.branches_text}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setViewedMedicine(item)}
+                        className="h-7 px-2 text-xs font-medium cursor-pointer"
+                      >
+                        <Eye className="size-3 mr-1" />
+                        <span>View</span>
+                      </Button>
+                      {canEdit && (
+                        <Button asChild variant="ghost" size="sm" className="h-7 px-2 text-xs font-medium">
+                          <Link href={`/medicines/${item.id}/edit`}>
+                            <Edit3 className="size-3 mr-1" />
+                            <span>Edit</span>
+                          </Link>
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Desktop & Tablet Table (hidden sm:block) */}
+          <div className="hidden sm:block overflow-x-auto">
             <Table>
               <TableHeader>
                 <tr className="border-b border-zinc-200/80 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40 text-muted-foreground text-xs font-semibold">
