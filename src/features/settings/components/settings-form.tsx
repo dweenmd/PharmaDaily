@@ -4,7 +4,8 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
-import { EDITABLE_SETTINGS, saveSettingAction, type SettingKey } from "@/features/settings/actions";
+import { EDITABLE_SETTINGS, type SettingKey } from "@/features/settings/constants";
+import { saveSettingAction } from "@/features/settings/actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";

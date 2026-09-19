@@ -8,8 +8,8 @@ import { toast } from "sonner";
 import {
   recordCustomerPaymentAction,
   recordSupplierPaymentAction,
-  type PaymentInput,
 } from "@/features/customers/actions";
+import { type PaymentInput } from "@/features/customers/schemas";
 import { PAYMENT_METHOD_LABELS } from "@/features/sales/schemas";
 import { formatCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
